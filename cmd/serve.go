@@ -109,5 +109,8 @@ func prepareDatabaseOptions(cmd *cobra.Command) (fx.Option, error) {
 		return nil, err
 	}
 
-	return storage.Module(*connectionOptions, service.IsDebug(cmd)), nil
+	return fx.Options(
+		fx.Supply(connectionOptions),
+		storage.Module(*connectionOptions, service.IsDebug(cmd)),
+	), nil
 }
