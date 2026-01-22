@@ -1,5 +1,5 @@
 name: Setup Env
-description: Setup Env for Linux x64
+description: Setup Nix and Earthly environment for CI
 inputs:
   token:
     description: 'A Github PAT'
@@ -7,6 +7,10 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@main
+    - name: Setup Nix cache
+      uses: DeterminateSystems/magic-nix-cache-action@main
     - uses: earthly/actions-setup@v1
       with:
         github-token: ${{ inputs.token }}
