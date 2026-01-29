@@ -322,8 +322,13 @@ func (s *Service) UpdatePolicy(ctx context.Context, id string, req *UpdatePolicy
 	// If switching to balance mode, clear transactional fields
 	if switchingToBalance {
 		policy.DeterministicFields = nil
-		policy.Topology = ""
+		policy.Topology = "1:1"
 		policy.ScoringConfig = nil
+	}
+
+	// If switching to transactional mode and no topology, set default
+	if switchingToTransactional && policy.Topology == "" {
+		policy.Topology = "1:1"
 	}
 
 	// Update in storage
@@ -388,6 +393,12 @@ type CreatePolicyV2TransactionRequest struct {
 
 // CreatePolicyV2Transaction creates a new transactional-mode policy using v2 API format.
 func (s *Service) CreatePolicyV2Transaction(ctx context.Context, req *CreatePolicyV2TransactionRequest) (*models.Policy, error) {
+	// connectorType and connectorId are mutually exclusive
+	if req.ConnectorType != nil && *req.ConnectorType != "" &&
+		req.ConnectorID != nil && *req.ConnectorID != "" {
+		return nil, errors.New("connectorType and connectorId are mutually exclusive")
+	}
+
 	// Default ledger query if not provided
 	ledgerQuery := req.LedgerQuery
 	if ledgerQuery == nil {
@@ -482,6 +493,9 @@ func (s *Service) UpdatePolicyV2(ctx context.Context, id string, req *UpdatePoli
 			policy.DeterministicFields = req.DeterministicFields
 		}
 		if req.ScoringConfig != nil {
+			if err := validateScoringConfig(req.ScoringConfig); err != nil {
+				return nil, err
+			}
 			policy.ScoringConfig = req.ScoringConfig
 		}
 	}

@@ -42,9 +42,13 @@ type transactionResponse struct {
 }
 
 func transactionToResponse(tx models.Transaction) transactionResponse {
+	var policyIDStr string
+	if tx.PolicyID != nil {
+		policyIDStr = tx.PolicyID.String()
+	}
 	return transactionResponse{
 		ID:         tx.ID.String(),
-		PolicyID:   tx.PolicyID.String(),
+		PolicyID:   policyIDStr,
 		Side:       string(tx.Side),
 		Provider:   tx.Provider,
 		ExternalID: tx.ExternalID,

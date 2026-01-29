@@ -120,7 +120,7 @@ func runServer(version string) func(cmd *cobra.Command, args []string) error {
 		// because the API service depends on TransactionStore (OpenSearch)
 		stack, _ := cmd.Flags().GetString(stackFlag)
 		options = append(options,
-			elasticsearch.Module(),
+			elasticsearch.ModuleWithStack(stack),
 			ingestion.SharedIngestionModule(ingestion.SharedIngestionConfig{Stack: stack}),
 		)
 
