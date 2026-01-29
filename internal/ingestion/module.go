@@ -193,7 +193,7 @@ func UnifiedIngestionModule(config UnifiedIngestionConfig) fx.Option {
 				})
 			}
 		}),
-		fx.Invoke(func(lc fx.Lifecycle, service *UnifiedIngestionService) {
+		fx.Invoke(func(lc fx.Lifecycle, service *UnifiedIngestionService, shutdowner fx.Shutdowner) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
 					logging.FromContext(ctx).WithFields(map[string]interface{}{
@@ -205,6 +205,8 @@ func UnifiedIngestionModule(config UnifiedIngestionConfig) fx.Option {
 							logging.FromContext(ctx).WithFields(map[string]interface{}{
 								"error": err.Error(),
 							}).Error("Unified ingestion service stopped with error")
+							// Signal the application to shut down on fatal service error
+							_ = shutdowner.Shutdown(fx.ExitCode(1))
 						}
 					}()
 					return nil

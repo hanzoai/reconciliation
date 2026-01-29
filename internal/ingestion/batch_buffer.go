@@ -228,15 +228,16 @@ func (b *BatchBuffer) Start(ctx context.Context) error {
 
 // Stop gracefully stops the batch buffer with a final flush.
 func (b *BatchBuffer) Stop() error {
+	// Perform final flush before cancelling context, so the flush
+	// has a valid context for store operations.
+	b.flush(FlushTriggerShutdown)
+
 	if b.cancel != nil {
 		b.cancel()
 	}
 
 	// Wait for flush loop to complete
 	b.wg.Wait()
-
-	// Perform final flush
-	b.flush(FlushTriggerShutdown)
 
 	return nil
 }

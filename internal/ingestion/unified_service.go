@@ -356,10 +356,13 @@ func (h *UnifiedEventHandler) handleBackfillEvent(ctx context.Context, genericEv
 		"backfill_id": backfillID.String(),
 	}).Info("Processing backfill event")
 
-	// Execute backfill in a goroutine to avoid blocking the consumer
+	// Execute backfill in a goroutine to avoid blocking the consumer.
+	// Use a detached context because the message context will be cancelled
+	// once this handler returns and the message is acknowledged.
+	bgCtx := context.WithoutCancel(ctx)
 	go func() {
-		if err := h.backfillExecutor.Execute(ctx, backfillID); err != nil {
-			logging.FromContext(ctx).WithFields(map[string]interface{}{
+		if err := h.backfillExecutor.Execute(bgCtx, backfillID); err != nil {
+			logging.FromContext(bgCtx).WithFields(map[string]interface{}{
 				"backfill_id": backfillID.String(),
 				"error":       err.Error(),
 			}).Error("Backfill execution failed")

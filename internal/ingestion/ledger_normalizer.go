@@ -3,6 +3,7 @@ package ingestion
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -31,9 +32,9 @@ type LedgerPosting struct {
 	Asset       string   `json:"asset"`
 }
 
-// NormalizeLedgerEvent transforms a raw Ledger event into Transaction structs.
+// NormalizeLedgerEvent transforms a raw Ledger event into a Transaction.
 // Returns (nil, nil) for non-relevant events that should be skipped.
-// Returns ([]*Transaction, nil) for successfully normalized transactions.
+// Returns (*Transaction, nil) for a successfully normalized transaction.
 // Returns (nil, error) for malformed events that cannot be processed.
 func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) (*models.Transaction, error) {
 	// Check if this is a transaction event we care about
@@ -42,7 +43,7 @@ func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) (*models.Trans
 		return nil, nil
 	}
 
-	fmt.Printf("[DEBUG-NORMALIZE-LEDGER] Processing event: type=%s, ledger=%s\n", event.Type, event.Ledger)
+	logging.FromContext(ctx).Debugf("Processing ledger event: type=%s, ledger=%s", event.Type, event.Ledger)
 
 	// Extract transaction data from payload (supports both single and batch formats)
 	txDataList, err := extractTransactionDataList(event.Payload)
@@ -54,21 +55,11 @@ func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) (*models.Trans
 		return nil, nil
 	}
 
-	// For now, process only the first transaction
-	// TODO: Support batch processing for multiple transactions
-	txData := txDataList[0]
+	if len(txDataList) > 1 {
+		return nil, fmt.Errorf("batch transactions are not supported: got %d transactions", len(txDataList))
+	}
 
-	// Debug: show raw transaction data
-	fmt.Printf("[DEBUG-NORMALIZE-LEDGER] Raw txData keys: ")
-	for k := range txData {
-		fmt.Printf("%s, ", k)
-	}
-	fmt.Println()
-	if ts, ok := txData["timestamp"]; ok {
-		fmt.Printf("[DEBUG-NORMALIZE-LEDGER] Raw timestamp value: %v (type: %T)\n", ts, ts)
-	} else {
-		fmt.Println("[DEBUG-NORMALIZE-LEDGER] WARNING: No 'timestamp' field in txData!")
-	}
+	txData := txDataList[0]
 
 	// Extract external ID from transaction_id
 	externalID, err := extractExternalID(txData)
@@ -103,8 +94,11 @@ func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) (*models.Trans
 		Metadata:   metadata,
 	}
 
-	fmt.Printf("[DEBUG-NORMALIZE-LEDGER] Created transaction: externalID=%s, provider=%s, occurredAt=%v\n",
-		tx.ExternalID, tx.Provider, tx.OccurredAt)
+	logging.FromContext(ctx).WithFields(map[string]interface{}{
+		"external_id": tx.ExternalID,
+		"provider":    tx.Provider,
+		"occurred_at": tx.OccurredAt,
+	}).Debug("Created ledger transaction")
 
 	return tx, nil
 }
@@ -242,17 +236,29 @@ func extractPostingAmount(posting map[string]interface{}) (int64, error) {
 
 	switch v := amountRaw.(type) {
 	case float64:
+		if math.Trunc(v) != v {
+			return 0, fmt.Errorf("amount has fractional part: %v", v)
+		}
+		if v > float64(math.MaxInt64) || v < float64(math.MinInt64) {
+			return 0, fmt.Errorf("amount overflows int64: %v", v)
+		}
 		return int64(v), nil
 	case int:
 		return int64(v), nil
 	case int64:
 		return v, nil
 	case *big.Int:
+		if !v.IsInt64() {
+			return 0, fmt.Errorf("amount overflows int64: %s", v.String())
+		}
 		return v.Int64(), nil
 	case string:
 		bi := new(big.Int)
 		if _, ok := bi.SetString(v, 10); !ok {
 			return 0, fmt.Errorf("invalid amount string: %s", v)
+		}
+		if !bi.IsInt64() {
+			return 0, fmt.Errorf("amount overflows int64: %s", v)
 		}
 		return bi.Int64(), nil
 	default:
@@ -264,20 +270,12 @@ func extractPostingAmount(posting map[string]interface{}) (int64, error) {
 func extractOccurredAt(txData map[string]interface{}) (time.Time, error) {
 	// Try "timestamp" field first
 	if ts, ok := txData["timestamp"]; ok {
-		result, err := parseTimestamp(ts)
-		if err == nil {
-			fmt.Printf("[DEBUG-NORMALIZER] Extracted timestamp: raw=%v, parsed=%v\n", ts, result)
-		}
-		return result, err
+		return parseTimestamp(ts)
 	}
 
 	// Try "date" field as fallback
 	if date, ok := txData["date"]; ok {
-		result, err := parseTimestamp(date)
-		if err == nil {
-			fmt.Printf("[DEBUG-NORMALIZER] Extracted date: raw=%v, parsed=%v\n", date, result)
-		}
-		return result, err
+		return parseTimestamp(date)
 	}
 
 	return time.Time{}, fmt.Errorf("missing timestamp or date field")
