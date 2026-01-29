@@ -125,12 +125,15 @@ func (c *Client) CreateTransactionIndexTemplate(ctx context.Context, stack strin
 		return fmt.Errorf("failed to marshal index template body: %w", err)
 	}
 
-	_, err = c.client.IndexTemplate.Create(ctx, opensearchapi.IndexTemplateCreateReq{
+	res, err := c.client.IndexTemplate.Create(ctx, opensearchapi.IndexTemplateCreateReq{
 		IndexTemplate: TransactionIndexTemplateName(stack),
 		Body:          bytes.NewReader(bodyBytes),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create index template: %w", err)
+		return fmt.Errorf("CreateTransactionIndexTemplate: failed to create index template: %w", err)
+	}
+	if res.Inspect().Response.StatusCode >= 400 {
+		return fmt.Errorf("CreateTransactionIndexTemplate: unexpected status %d", res.Inspect().Response.StatusCode)
 	}
 
 	return nil
@@ -151,13 +154,16 @@ func (c *Client) IndexTransaction(ctx context.Context, stack string, tx *models.
 	indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
 	docID := GenerateDocumentID(tx.Side, tx.ExternalID)
 
-	_, err = c.client.Index(ctx, opensearchapi.IndexReq{
+	res, err := c.client.Index(ctx, opensearchapi.IndexReq{
 		Index:      indexName,
 		DocumentID: docID,
 		Body:       bytes.NewReader(docBytes),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to index transaction: %w", err)
+		return fmt.Errorf("IndexTransaction: failed to index transaction: %w", err)
+	}
+	if res.Inspect().Response.StatusCode >= 400 {
+		return fmt.Errorf("IndexTransaction: unexpected status %d", res.Inspect().Response.StatusCode)
 	}
 
 	return nil
@@ -207,11 +213,14 @@ func (c *Client) SearchTransaction(ctx context.Context, stack string, transactio
 
 // RefreshIndex refreshes an index to make recently indexed documents searchable.
 func (c *Client) RefreshIndex(ctx context.Context, indexName string) error {
-	_, err := c.client.Indices.Refresh(ctx, &opensearchapi.IndicesRefreshReq{
+	res, err := c.client.Indices.Refresh(ctx, &opensearchapi.IndicesRefreshReq{
 		Indices: []string{indexName},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to refresh index: %w", err)
+		return fmt.Errorf("RefreshIndex: failed to refresh index: %w", err)
+	}
+	if res.Inspect().Response.StatusCode >= 400 {
+		return fmt.Errorf("RefreshIndex: unexpected status %d", res.Inspect().Response.StatusCode)
 	}
 
 	return nil
@@ -347,13 +356,13 @@ func (c *Client) ExistsByExternalIDs(ctx context.Context, stack string, side mod
 	for _, hit := range res.Hits.Hits {
 		sourceBytes, err := json.Marshal(hit.Source)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("ExistsByExternalIDs: failed to marshal source for hit %s: %w", hit.ID, err)
 		}
 		var doc struct {
 			ExternalID string `json:"external_id"`
 		}
 		if err := json.Unmarshal(sourceBytes, &doc); err != nil {
-			continue
+			return nil, fmt.Errorf("ExistsByExternalIDs: failed to unmarshal source for hit %s: %w", hit.ID, err)
 		}
 		result[doc.ExternalID] = true
 	}
@@ -483,14 +492,14 @@ func (c *Client) SearchByField(ctx context.Context, stack string, side models.Tr
 		var doc TransactionDocument
 		sourceBytes, err := json.Marshal(hit.Source)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("SearchByField: failed to marshal source for hit %s: %w", hit.ID, err)
 		}
 		if err := json.Unmarshal(sourceBytes, &doc); err != nil {
-			continue
+			return nil, fmt.Errorf("SearchByField: failed to unmarshal source for hit %s: %w", hit.ID, err)
 		}
 		tx, err := documentToModel(&doc)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("SearchByField: failed to convert document for hit %s: %w", hit.ID, err)
 		}
 		transactions = append(transactions, tx)
 	}
@@ -547,14 +556,14 @@ func (c *Client) GetTransactionsByProvider(ctx context.Context, stack string, pr
 		var doc TransactionDocument
 		sourceBytes, err := json.Marshal(hit.Source)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("GetTransactionsByProvider: failed to marshal source for hit %s: %w", hit.ID, err)
 		}
 		if err := json.Unmarshal(sourceBytes, &doc); err != nil {
-			continue
+			return nil, fmt.Errorf("GetTransactionsByProvider: failed to unmarshal source for hit %s: %w", hit.ID, err)
 		}
 		tx, err := documentToModel(&doc)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("GetTransactionsByProvider: failed to convert document for hit %s: %w", hit.ID, err)
 		}
 		transactions = append(transactions, tx)
 	}
@@ -632,13 +641,16 @@ func (c *Client) CreateTransaction(ctx context.Context, stack string, tx *models
 	indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
 	docID := GenerateDocumentID(tx.Side, tx.ExternalID)
 
-	_, err = c.client.Index(ctx, opensearchapi.IndexReq{
+	res, err := c.client.Index(ctx, opensearchapi.IndexReq{
 		Index:      indexName,
 		DocumentID: docID,
 		Body:       bytes.NewReader(docBytes),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to index transaction: %w", err)
+		return fmt.Errorf("CreateTransaction: failed to index transaction: %w", err)
+	}
+	if res.Inspect().Response.StatusCode >= 400 {
+		return fmt.Errorf("CreateTransaction: unexpected status %d", res.Inspect().Response.StatusCode)
 	}
 
 	return nil

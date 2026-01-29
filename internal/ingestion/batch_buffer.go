@@ -345,7 +345,14 @@ func (b *BatchBuffer) flush(trigger string) {
 	}
 
 	// Separate items by side
-	ledgerItems, paymentItems := b.splitBySide(toFlush)
+	ledgerItems, paymentItems, unknownItems := b.splitBySide(ctx, toFlush)
+
+	// Nack unknown items so they are not silently lost
+	for _, item := range unknownItems {
+		if item.Message != nil {
+			item.Message.Nack()
+		}
+	}
 
 	// Process each side
 	b.processSide(ctx, ledgerItems, models.TransactionSideLedger, SideLedger)
@@ -374,8 +381,10 @@ func (b *BatchBuffer) flush(trigger string) {
 }
 
 // splitBySide separates items by transaction side.
-func (b *BatchBuffer) splitBySide(items []*BatchItem) ([]*BatchItem, []*BatchItem) {
-	var ledgerItems, paymentItems []*BatchItem
+// Items with unknown sides are logged as warnings and collected in a third slice.
+func (b *BatchBuffer) splitBySide(ctx context.Context, items []*BatchItem) ([]*BatchItem, []*BatchItem, []*BatchItem) {
+	var ledgerItems, paymentItems, unknownItems []*BatchItem
+	logger := logging.FromContext(ctx)
 
 	for _, item := range items {
 		switch item.Transaction.Side {
@@ -383,10 +392,17 @@ func (b *BatchBuffer) splitBySide(items []*BatchItem) ([]*BatchItem, []*BatchIte
 			ledgerItems = append(ledgerItems, item)
 		case models.TransactionSidePayments:
 			paymentItems = append(paymentItems, item)
+		default:
+			logger.WithFields(map[string]interface{}{
+				"transaction_id":   item.Transaction.ID,
+				"external_id":     item.Transaction.ExternalID,
+				"unknown_side":    string(item.Transaction.Side),
+			}).Error("Dropping item with unknown transaction side")
+			unknownItems = append(unknownItems, item)
 		}
 	}
 
-	return ledgerItems, paymentItems
+	return ledgerItems, paymentItems, unknownItems
 }
 
 // processSide handles a batch of items for a specific side.

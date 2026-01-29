@@ -208,6 +208,12 @@ func extractAmountFromPostings(txData map[string]interface{}) (int64, string, er
 		if err != nil {
 			return 0, "", fmt.Errorf("posting %d: %w", i, err)
 		}
+		if amount > 0 && totalAmount > math.MaxInt64-amount {
+			return 0, "", fmt.Errorf("posting %d: integer overflow when summing postings", i)
+		}
+		if amount < 0 && totalAmount < math.MinInt64-amount {
+			return 0, "", fmt.Errorf("posting %d: integer underflow when summing postings", i)
+		}
 		totalAmount += amount
 
 		// Extract asset/currency

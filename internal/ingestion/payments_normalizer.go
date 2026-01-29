@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/formancehq/go-libs/v3/logging"
@@ -160,10 +161,9 @@ func extractPaymentAmount(payload map[string]interface{}) (int64, error) {
 	case int64:
 		return v, nil
 	case string:
-		var amount int64
-		_, err := fmt.Sscanf(v, "%d", &amount)
+		amount, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid amount string: %s", v)
+			return 0, fmt.Errorf("invalid amount string %q: %w", v, err)
 		}
 		return amount, nil
 	default:
