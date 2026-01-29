@@ -136,58 +136,6 @@ func (c *Client) CreateTransactionIndexTemplate(ctx context.Context, stack strin
 	return nil
 }
 
-// GetTransactionIndexTemplate retrieves the index template for transactions.
-func (c *Client) GetTransactionIndexTemplate(ctx context.Context, stack string) (map[string]interface{}, error) {
-	res, err := c.client.IndexTemplate.Get(ctx, &opensearchapi.IndexTemplateGetReq{
-		IndexTemplates: []string{TransactionIndexTemplateName(stack)},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get index template: %w", err)
-	}
-
-	// Convert response to map
-	result := make(map[string]interface{})
-	if len(res.IndexTemplates) > 0 {
-		result["index_templates"] = res.IndexTemplates
-	}
-
-	return result, nil
-}
-
-// DeleteTransactionIndexTemplate deletes the index template for transactions.
-func (c *Client) DeleteTransactionIndexTemplate(ctx context.Context, stack string) error {
-	_, err := c.client.IndexTemplate.Delete(ctx, opensearchapi.IndexTemplateDeleteReq{
-		IndexTemplate: TransactionIndexTemplateName(stack),
-	})
-	if err != nil {
-		// Check if it's a 404 error (template doesn't exist)
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "index_template_missing") {
-			return nil
-		}
-		return fmt.Errorf("failed to delete index template: %w", err)
-	}
-
-	return nil
-}
-
-// GetIndexMapping retrieves the mapping for a specific index.
-func (c *Client) GetIndexMapping(ctx context.Context, indexName string) (map[string]interface{}, error) {
-	res, err := c.client.Indices.Mapping.Get(ctx, &opensearchapi.MappingGetReq{
-		Indices: []string{indexName},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get index mapping: %w", err)
-	}
-
-	// Convert response to map[string]interface{}
-	result := make(map[string]interface{})
-	for k, v := range res.Indices {
-		result[k] = v
-	}
-
-	return result, nil
-}
-
 // IndexTransaction indexes a transaction document into a monthly index.
 // The index name follows the pattern: {stack}-reconciliation-{yyyy-mm}
 // where the month is derived from the transaction's OccurredAt field.
@@ -213,35 +161,6 @@ func (c *Client) IndexTransaction(ctx context.Context, stack string, tx *models.
 	}
 
 	return nil
-}
-
-// GetTransaction retrieves a transaction document by ID from the monthly index.
-// The date parameter specifies the month in which the transaction occurred.
-func (c *Client) GetTransaction(ctx context.Context, stack string, transactionID uuid.UUID, date time.Time) (*TransactionDocument, error) {
-	indexName := MonthlyTransactionIndexName(stack, date)
-
-	res, err := c.client.Document.Get(ctx, opensearchapi.DocumentGetReq{
-		Index:      indexName,
-		DocumentID: transactionID.String(),
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "404") {
-			return nil, fmt.Errorf("transaction not found: %s", transactionID)
-		}
-		return nil, fmt.Errorf("failed to get transaction: %w", err)
-	}
-
-	// Parse the source into TransactionDocument
-	var doc TransactionDocument
-	sourceBytes, err := json.Marshal(res.Source)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal source: %w", err)
-	}
-	if err := json.Unmarshal(sourceBytes, &doc); err != nil {
-		return nil, fmt.Errorf("failed to decode transaction response: %w", err)
-	}
-
-	return &doc, nil
 }
 
 // SearchTransaction searches for a transaction by ID across all monthly indices for a stack.
@@ -298,151 +217,12 @@ func (c *Client) RefreshIndex(ctx context.Context, indexName string) error {
 	return nil
 }
 
-// IndexExists checks if an index exists.
-func (c *Client) IndexExists(ctx context.Context, indexName string) (bool, error) {
-	res, err := c.client.Indices.Exists(ctx, opensearchapi.IndicesExistsReq{
-		Indices: []string{indexName},
-	})
-	if err != nil {
-		// If the error contains 404, the index doesn't exist
-		if strings.Contains(err.Error(), "404") {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to check if index exists: %w", err)
-	}
-
-	return res.StatusCode == 200, nil
-}
-
-// TransactionIndexTemplateExists checks if the transaction index template exists.
-func (c *Client) TransactionIndexTemplateExists(ctx context.Context, stack string) (bool, error) {
-	res, err := c.client.IndexTemplate.Exists(ctx, opensearchapi.IndexTemplateExistsReq{
-		IndexTemplate: TransactionIndexTemplateName(stack),
-	})
-	if err != nil {
-		// If the error contains 404, the template doesn't exist
-		if strings.Contains(err.Error(), "404") {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to check if index template exists: %w", err)
-	}
-
-	return res.StatusCode == 200, nil
-}
-
 // EnsureTransactionIndexTemplate ensures the transaction index template exists and is up to date.
 // This always creates/updates the template (PUT is idempotent in OpenSearch).
 // If ismEnabled is true, the template will reference the ISM policy.
 // Note: Updating the template only affects new indices; existing indices keep their old mapping.
 func (c *Client) EnsureTransactionIndexTemplate(ctx context.Context, stack string, ismEnabled bool) error {
 	return c.CreateTransactionIndexTemplate(ctx, stack, ismEnabled)
-}
-
-// GetTransactionMappingProperties returns the expected mapping properties for validation.
-func GetTransactionMappingProperties() map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range transactionMappingProperties {
-		result[k] = v
-	}
-	return result
-}
-
-// ValidateIndexMapping validates that an index has the expected transaction mapping.
-func (c *Client) ValidateIndexMapping(ctx context.Context, indexName string) error {
-	mapping, err := c.GetIndexMapping(ctx, indexName)
-	if err != nil {
-		return err
-	}
-
-	// Extract the properties from the mapping response
-	indexMapping, ok := mapping[indexName].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("unexpected mapping structure for index %s", indexName)
-	}
-
-	mappings, ok := indexMapping["mappings"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("mappings not found in index %s", indexName)
-	}
-
-	properties, ok := mappings["properties"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("properties not found in index mapping %s", indexName)
-	}
-
-	// Validate each expected field
-	expectedFields := []string{"transaction_id", "side", "provider", "external_id", "amount", "currency", "occurred_at", "metadata"}
-	for _, field := range expectedFields {
-		if _, ok := properties[field]; !ok {
-			return fmt.Errorf("field %s not found in index mapping", field)
-		}
-	}
-
-	// Validate field types
-	fieldTypes := map[string]string{
-		"transaction_id": "keyword",
-		"side":           "keyword",
-		"provider":       "keyword",
-		"external_id":    "keyword",
-		"amount":         "long",
-		"currency":       "keyword",
-		"occurred_at":    "date",
-		"metadata":       "flat_object",
-	}
-
-	for field, expectedType := range fieldTypes {
-		fieldMapping, ok := properties[field].(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("invalid mapping for field %s", field)
-		}
-
-		actualType, ok := fieldMapping["type"].(string)
-		if !ok {
-			return fmt.Errorf("type not found for field %s", field)
-		}
-
-		if !strings.EqualFold(actualType, expectedType) {
-			return fmt.Errorf("field %s has type %s, expected %s", field, actualType, expectedType)
-		}
-	}
-
-	return nil
-}
-
-// SearchTransactions searches for transactions matching a query in OpenSearch.
-// This is used by the probabilistic matcher to find candidate matches.
-func (c *Client) SearchTransactions(ctx context.Context, indexPattern string, query map[string]interface{}, size int) ([]TransactionDocument, error) {
-	searchBody := map[string]interface{}{
-		"query": query,
-		"size":  size,
-	}
-	bodyBytes, err := json.Marshal(searchBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal search body: %w", err)
-	}
-
-	res, err := c.client.Search(ctx, &opensearchapi.SearchReq{
-		Indices: []string{indexPattern},
-		Body:    bytes.NewReader(bodyBytes),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to search transactions: %w", err)
-	}
-
-	documents := make([]TransactionDocument, 0, len(res.Hits.Hits))
-	for _, hit := range res.Hits.Hits {
-		var doc TransactionDocument
-		sourceBytes, err := json.Marshal(hit.Source)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal source: %w", err)
-		}
-		if err := json.Unmarshal(sourceBytes, &doc); err != nil {
-			return nil, fmt.Errorf("failed to decode hit source: %w", err)
-		}
-		documents = append(documents, doc)
-	}
-
-	return documents, nil
 }
 
 // BulkIndex indexes multiple transaction documents in a single bulk request.

@@ -28,8 +28,3 @@ func e(msg string, err error) error {
 
 	return fmt.Errorf("%s: %w", msg, err)
 }
-
-// IsDuplicateKeyError checks if an error is a duplicate key error.
-func IsDuplicateKeyError(err error) bool {
-	return errors.Is(err, ErrDuplicateKeyValue)
-}

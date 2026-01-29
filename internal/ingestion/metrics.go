@@ -111,22 +111,3 @@ func (m *IngestionMetrics) RecordLag(ctx context.Context, side string, eventTime
 	)
 }
 
-// defaultMetrics is a package-level instance for use when dependency injection is not available.
-var defaultMetrics *IngestionMetrics
-
-// InitDefaultMetrics initializes the default metrics instance.
-// This should be called during application startup.
-func InitDefaultMetrics() error {
-	metrics, err := NewIngestionMetrics()
-	if err != nil {
-		return err
-	}
-	defaultMetrics = metrics
-	return nil
-}
-
-// GetDefaultMetrics returns the default metrics instance.
-// Returns nil if InitDefaultMetrics has not been called.
-func GetDefaultMetrics() *IngestionMetrics {
-	return defaultMetrics
-}

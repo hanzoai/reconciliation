@@ -10,14 +10,6 @@ import (
 	"strings"
 )
 
-// ISM policy and state constants.
-const (
-	// DefaultHotPhaseDays is the default duration for the hot phase (90 days).
-	DefaultHotPhaseDays = 90
-	// DefaultWarmPhaseRolloverDays is the default age for rolling over to warm phase (365 days = 1 year).
-	DefaultWarmPhaseRolloverDays = 365
-)
-
 // TransactionISMPolicyName returns the ISM policy name for a given stack.
 // Example: mystack-reconciliation
 func TransactionISMPolicyName(stack string) string {
@@ -46,8 +38,8 @@ type ISMConfig struct {
 func DefaultISMConfig() ISMConfig {
 	return ISMConfig{
 		Enabled:               true,
-		HotPhaseDays:          DefaultHotPhaseDays,
-		WarmPhaseRolloverDays: DefaultWarmPhaseRolloverDays,
+		HotPhaseDays:          90,
+		WarmPhaseRolloverDays: 365,
 		DeletePhaseEnabled:    false,
 		DeletePhaseDays:       0,
 	}
@@ -147,65 +139,6 @@ func (c *Client) CreateISMPolicy(ctx context.Context, stack string, config ISMCo
 	return nil
 }
 
-// GetISMPolicy retrieves the ISM policy for transaction indices.
-func (c *Client) GetISMPolicy(ctx context.Context, stack string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("_plugins/_ism/policies/%s", TransactionISMPolicyName(stack))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create get ISM policy request: %w", err)
-	}
-
-	res, err := c.client.Client.Perform(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ISM policy: %w", err)
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode == 404 {
-		return nil, fmt.Errorf("ISM policy not found: %s", TransactionISMPolicyName(stack))
-	}
-
-	if res.StatusCode >= 400 {
-		bodyContent, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("failed to get ISM policy: %d - %s", res.StatusCode, string(bodyContent))
-	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode ISM policy response: %w", err)
-	}
-
-	return result, nil
-}
-
-// DeleteISMPolicy deletes the ISM policy for transaction indices.
-func (c *Client) DeleteISMPolicy(ctx context.Context, stack string) error {
-	url := fmt.Sprintf("_plugins/_ism/policies/%s", TransactionISMPolicyName(stack))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create delete ISM policy request: %w", err)
-	}
-
-	res, err := c.client.Client.Perform(req)
-	if err != nil {
-		return fmt.Errorf("failed to delete ISM policy: %w", err)
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode == 404 {
-		return nil // Policy doesn't exist, nothing to delete
-	}
-
-	if res.StatusCode >= 400 {
-		bodyContent, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("failed to delete ISM policy: %d - %s", res.StatusCode, string(bodyContent))
-	}
-
-	return nil
-}
-
 // ISMPolicyExists checks if the ISM policy exists.
 func (c *Client) ISMPolicyExists(ctx context.Context, stack string) (bool, error) {
 	url := fmt.Sprintf("_plugins/_ism/policies/%s", TransactionISMPolicyName(stack))
@@ -254,41 +187,6 @@ func (c *Client) EnsureISMPolicy(ctx context.Context, stack string, config ISMCo
 	}
 
 	return nil
-}
-
-// GetIndexISMPolicy retrieves the ISM policy attached to an index.
-func (c *Client) GetIndexISMPolicy(ctx context.Context, indexName string) (string, error) {
-	url := fmt.Sprintf("_plugins/_ism/explain/%s", indexName)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create ISM explain request: %w", err)
-	}
-
-	res, err := c.client.Client.Perform(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to get index ISM policy: %w", err)
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode >= 400 {
-		bodyContent, _ := io.ReadAll(res.Body)
-		return "", fmt.Errorf("failed to get index ISM policy: %d - %s", res.StatusCode, string(bodyContent))
-	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode ISM explain response: %w", err)
-	}
-
-	// Extract policy ID from the response
-	if indexInfo, ok := result[indexName].(map[string]interface{}); ok {
-		if policyID, ok := indexInfo["index.plugins.index_state_management.policy_id"].(string); ok {
-			return policyID, nil
-		}
-	}
-
-	return "", nil
 }
 
 // Aliases for backward compatibility with existing code that uses ILM naming

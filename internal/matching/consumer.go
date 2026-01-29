@@ -14,6 +14,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// DefaultMatchingWorkers is the default number of matching workers.
+const DefaultMatchingWorkers = 10
+
 // DefaultConsumerWorkers is the default number of concurrent message handlers.
 const DefaultConsumerWorkers = 10
 

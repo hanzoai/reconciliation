@@ -167,20 +167,6 @@ func TestOpenSearchIntegration(t *testing.T) {
 		exists, err = client.ISMPolicyExists(ctx, stack)
 		require.NoError(t, err)
 		assert.True(t, exists)
-
-		// Get the policy
-		policy, err := client.GetISMPolicy(ctx, stack)
-		require.NoError(t, err)
-		assert.NotNil(t, policy)
-
-		// Delete the policy
-		err = client.DeleteISMPolicy(ctx, stack)
-		require.NoError(t, err)
-
-		// Verify it's gone
-		exists, err = client.ISMPolicyExists(ctx, stack)
-		require.NoError(t, err)
-		assert.False(t, exists)
 	})
 }
 
