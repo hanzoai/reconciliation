@@ -196,6 +196,10 @@ func UpdatePolicyHandler(b backend.Backend) http.HandlerFunc {
 		if req.Payment != nil {
 			paymentConfig, ok := req.Payment.(map[string]interface{})
 			if ok {
+				if _, exists := paymentConfig["poolId"]; exists {
+					api.BadRequest(w, ErrValidation, fmt.Errorf("poolId cannot be updated for balance policies"))
+					return
+				}
 				if ct, exists := paymentConfig["connectorType"]; exists {
 					if s, ok := ct.(string); ok {
 						serviceReq.ConnectorType = &s

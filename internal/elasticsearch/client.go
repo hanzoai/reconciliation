@@ -101,6 +101,7 @@ func (c *Client) Ping(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to ping opensearch: %w", err)
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
 		return fmt.Errorf("opensearch ping returned error: %d", res.StatusCode)
@@ -115,6 +116,7 @@ func (c *Client) Health(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get opensearch cluster health: %w", err)
 	}
+	defer res.Inspect().Response.Body.Close()
 
 	if res.Status == "red" {
 		return fmt.Errorf("opensearch cluster health is red")
@@ -132,6 +134,7 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) (bool, error
 	if err != nil {
 		return false, fmt.Errorf("failed to delete index: %w", err)
 	}
+	defer res.Inspect().Response.Body.Close()
 
 	if res.Inspect().Response.StatusCode == http.StatusNotFound {
 		return false, nil

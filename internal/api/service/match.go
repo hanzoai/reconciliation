@@ -303,16 +303,57 @@ func (s *Service) runDeterministicMatching(ctx context.Context, policy *models.P
 		oppositeSide = models.TransactionSideLedger
 	}
 
-	// Search for matching transaction by external_id using OpenSearch
-	matchedTx, err := s.txStore.GetByExternalID(ctx, oppositeSide, tx.ExternalID)
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			// No match found
-			return &matching.MatchResult{
-				Decision: matching.DecisionUnmatched,
-			}, nil
+	// Search for matching transaction using configured deterministic fields or default external_id
+	var matchedTx *models.Transaction
+	var matchReason string
+
+	if len(policy.DeterministicFields) > 0 && !(len(policy.DeterministicFields) == 1 && policy.DeterministicFields[0] == "external_id") {
+		// Use configured deterministic fields to search
+		for _, field := range policy.DeterministicFields {
+			var fieldValue string
+			switch field {
+			case "external_id":
+				fieldValue = tx.ExternalID
+			default:
+				// Look in metadata
+				if tx.Metadata != nil {
+					if v, ok := tx.Metadata[field]; ok {
+						fieldValue = fmt.Sprintf("%v", v)
+					}
+				}
+			}
+			if fieldValue == "" {
+				continue
+			}
+
+			results, err := s.txStore.SearchByField(ctx, oppositeSide, field, fieldValue)
+			if err != nil {
+				return nil, fmt.Errorf("failed to search by field %s: %w", field, err)
+			}
+			if len(results) > 0 {
+				matchedTx = results[0]
+				matchReason = fmt.Sprintf("deterministic match on field %s=%s", field, fieldValue)
+				break
+			}
 		}
-		return nil, fmt.Errorf("failed to search for match: %w", err)
+	} else {
+		// Default: match by external_id
+		var err error
+		matchedTx, err = s.txStore.GetByExternalID(ctx, oppositeSide, tx.ExternalID)
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				matchedTx = nil
+			} else {
+				return nil, fmt.Errorf("failed to search for match: %w", err)
+			}
+		}
+		matchReason = "deterministic match on external_id"
+	}
+
+	if matchedTx == nil {
+		return &matching.MatchResult{
+			Decision: matching.DecisionUnmatched,
+		}, nil
 	}
 
 	// Found a match - create the match record
@@ -322,7 +363,7 @@ func (s *Service) runDeterministicMatching(ctx context.Context, policy *models.P
 		Score:    1.0, // Deterministic match has perfect score
 		Decision: models.DecisionMatched,
 		Explanation: models.Explanation{
-			Reason: "deterministic match on external_id",
+			Reason: matchReason,
 		},
 		CreatedAt: time.Now().UTC(),
 	}
