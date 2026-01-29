@@ -245,21 +245,38 @@ func (c *Client) BulkIndex(ctx context.Context, stack string, transactions []*mo
 				"_id":    docID,
 			},
 		}
-		actionBytes, _ := json.Marshal(action)
+		actionBytes, err := json.Marshal(action)
+		if err != nil {
+			return fmt.Errorf("failed to marshal bulk action for transaction %s: %w", tx.ExternalID, err)
+		}
 		buf.Write(actionBytes)
 		buf.WriteByte('\n')
 
 		// Document line
-		docBytes, _ := json.Marshal(doc)
+		docBytes, err := json.Marshal(doc)
+		if err != nil {
+			return fmt.Errorf("failed to marshal bulk document for transaction %s: %w", tx.ExternalID, err)
+		}
 		buf.Write(docBytes)
 		buf.WriteByte('\n')
 	}
 
-	_, err := c.client.Bulk(ctx, opensearchapi.BulkReq{
+	res, err := c.client.Bulk(ctx, opensearchapi.BulkReq{
 		Body: &buf,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to bulk index transactions: %w", err)
+	}
+
+	// Check for errors in response
+	if res.Errors {
+		for _, item := range res.Items {
+			for _, result := range item {
+				if result.Error != nil {
+					return fmt.Errorf("bulk index error: %s - %s", result.Error.Type, result.Error.Reason)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -566,12 +583,18 @@ func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transact
 				"_id":    docID,
 			},
 		}
-		actionBytes, _ := json.Marshal(action)
+		actionBytes, err := json.Marshal(action)
+		if err != nil {
+			return fmt.Errorf("failed to marshal bulk action for transaction %s: %w", tx.ExternalID, err)
+		}
 		buf.Write(actionBytes)
 		buf.WriteByte('\n')
 
 		// Document line
-		docBytes, _ := json.Marshal(doc)
+		docBytes, err := json.Marshal(doc)
+		if err != nil {
+			return fmt.Errorf("failed to marshal bulk document for transaction %s: %w", tx.ExternalID, err)
+		}
 		buf.Write(docBytes)
 		buf.WriteByte('\n')
 	}
