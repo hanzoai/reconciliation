@@ -414,6 +414,10 @@ func (s *Service) CreatePolicyV2Transaction(ctx context.Context, req *CreatePoli
 	scoringConfig := req.ScoringConfig
 	if scoringConfig == nil {
 		scoringConfig = defaultScoringConfig()
+	} else {
+		if err := validateScoringConfig(scoringConfig); err != nil {
+			return nil, errors.Wrap(ErrValidation, err.Error())
+		}
 	}
 
 	policy := &models.Policy{
