@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/formancehq/go-libs/query"
+	"github.com/formancehq/go-libs/v3/query"
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

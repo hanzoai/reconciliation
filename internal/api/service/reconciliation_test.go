@@ -249,7 +249,7 @@ func TestReconciliation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := NewService(newMockStore(), newMockSDKFormanceClient(
+			s := NewService(newMockStore(), nil, newMockSDKFormanceClient(
 				tc.ledgerVersion,
 				tc.ledgerBalances,
 				tc.paymentsVersion,

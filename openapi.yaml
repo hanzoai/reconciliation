@@ -10,13 +10,15 @@ paths:
       tags:
         - reconciliation.v1
       responses:
-        '200':
-          $ref: '#/components/responses/ServerInfo'
+        "200":
+          $ref: "#/components/responses/ServerInfo"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:read
+
+  # V1 API routes
   /policies:
     post:
       summary: Create a policy
@@ -25,12 +27,12 @@ paths:
       operationId: createPolicy
       description: Create a policy
       requestBody:
-        $ref: '#/components/requestBodies/Policy'
+        $ref: "#/components/requestBodies/Policy"
       responses:
-        '201':
-          $ref: '#/components/responses/Policy'
+        "201":
+          $ref: "#/components/responses/Policy"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:write
@@ -40,18 +42,18 @@ paths:
       tags:
         - reconciliation.v1
       parameters:
-        - $ref: '#/components/parameters/PageSize'
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Cursor"
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/QueryBuilder'
+              $ref: "#/components/schemas/QueryBuilder"
       responses:
-        '200':
-          $ref: '#/components/responses/Policies'
+        "200":
+          $ref: "#/components/responses/Policies"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:read
@@ -63,12 +65,12 @@ paths:
         - reconciliation.v1
       description: Delete a policy by its id.
       parameters:
-        - $ref: '#/components/parameters/PolicyID'
+        - $ref: "#/components/parameters/PolicyID"
       responses:
-        '204':
-          $ref: '#/components/responses/NoContent'
+        "204":
+          $ref: "#/components/responses/NoContent"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:write
@@ -78,15 +80,32 @@ paths:
         - reconciliation.v1
       operationId: getPolicy
       parameters:
-        - $ref: '#/components/parameters/PolicyID'
+        - $ref: "#/components/parameters/PolicyID"
       responses:
-        '200':
-          $ref: '#/components/responses/Policy'
+        "200":
+          $ref: "#/components/responses/Policy"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:read
+    patch:
+      summary: Update a policy
+      tags:
+        - reconciliation.v1
+      operationId: updatePolicy
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      requestBody:
+        $ref: "#/components/requestBodies/Policy"
+      responses:
+        "200":
+          $ref: "#/components/responses/Policy"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
   /policies/{policyID}/reconciliation:
     post:
       summary: Reconcile using a policy
@@ -95,17 +114,40 @@ paths:
       operationId: reconcile
       description: Reconcile using a policy
       parameters:
-        - $ref: '#/components/parameters/PolicyID'
+        - $ref: "#/components/parameters/PolicyID"
       requestBody:
-        $ref: '#/components/requestBodies/Reconciliation'
+        $ref: "#/components/requestBodies/Reconciliation"
       responses:
-        '200':
-          $ref: '#/components/responses/Reconciliation'
+        "200":
+          $ref: "#/components/responses/Reconciliation"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:write
+  /policies/{policyID}/reports/latest:
+    get:
+      summary: Get latest policy report
+      tags:
+        - reconciliation.v1
+      operationId: getLatestPolicyReport
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Report"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
   /reconciliations:
     get:
       summary: List reconciliations
@@ -113,18 +155,18 @@ paths:
       tags:
         - reconciliation.v1
       parameters:
-        - $ref: '#/components/parameters/PageSize'
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Cursor"
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/QueryBuilder'
+              $ref: "#/components/schemas/QueryBuilder"
       responses:
-        '200':
-          $ref: '#/components/responses/Reconciliations'
+        "200":
+          $ref: "#/components/responses/Reconciliations"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:read
@@ -135,22 +177,373 @@ paths:
         - reconciliation.v1
       operationId: getReconciliation
       parameters:
-        - $ref: '#/components/parameters/ReconciliationID'
+        - $ref: "#/components/parameters/ReconciliationID"
       responses:
-        '200':
-          $ref: '#/components/responses/Reconciliation'
+        "200":
+          $ref: "#/components/responses/Reconciliation"
         default:
-          $ref: '#/components/responses/ErrorResponse'
+          $ref: "#/components/responses/ErrorResponse"
       security:
         - Authorization:
             - reconciliation:read
+
+  # V2 API routes
+  /v2/policies:
+    post:
+      summary: Create a policy (V2)
+      tags:
+        - reconciliation.v2
+      operationId: v2CreatePolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyV2Request"
+      responses:
+        "201":
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyV2Response"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+    get:
+      summary: List policies (V2)
+      operationId: v2ListPolicies
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoliciesV2CursorResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
+  /v2/policies/{policyID}:
+    get:
+      summary: Get a policy (V2)
+      tags:
+        - reconciliation.v2
+      operationId: v2GetPolicy
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyV2Response"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
+    patch:
+      summary: Update a policy (V2)
+      tags:
+        - reconciliation.v2
+      operationId: v2UpdatePolicy
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePolicyV2Request"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyV2Response"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+    delete:
+      summary: Delete a policy (V2)
+      tags:
+        - reconciliation.v2
+      operationId: v2DeletePolicy
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+  /v2/policies/{policyID}/anomalies:
+    get:
+      summary: List anomalies for a policy
+      operationId: v2ListPolicyAnomalies
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Cursor"
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [open, resolved]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              [
+                MISSING_ON_PAYMENTS,
+                MISSING_ON_LEDGER,
+                DUPLICATE_LEDGER,
+                AMOUNT_MISMATCH,
+              ]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnomaliesCursorResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
+  /v2/policies/{policyID}/matches:
+    post:
+      summary: Force match transactions (manual match)
+      operationId: v2ForceMatch
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForceMatchRequest"
+      responses:
+        "201":
+          description: Match created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Match"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+  /v2/policies/{policyID}/match:
+    post:
+      summary: Run matching for specific transactions
+      operationId: v2MatchTransactions
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchRequest"
+      responses:
+        "200":
+          description: Matching results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultsResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+  /v2/policies/{policyID}/trigger-matching:
+    post:
+      summary: Trigger matching for all transactions of a policy
+      operationId: v2TriggerPolicyMatching
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/PolicyID"
+      responses:
+        "200":
+          description: Matching results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultsResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+  /v2/anomalies:
+    get:
+      summary: List all anomalies
+      operationId: v2ListAnomalies
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Cursor"
+        - name: policyID
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [open, resolved]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              [
+                MISSING_ON_PAYMENTS,
+                MISSING_ON_LEDGER,
+                DUPLICATE_LEDGER,
+                AMOUNT_MISMATCH,
+              ]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnomaliesCursorResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
+  /v2/anomalies/{anomalyID}:
+    get:
+      summary: Get anomaly details
+      operationId: v2GetAnomaly
+      tags:
+        - reconciliation.v2
+      parameters:
+        - $ref: "#/components/parameters/AnomalyID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AnomalyDetail"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
+
+  /v2/backfill:
+    post:
+      summary: Create a backfill
+      operationId: v2CreateBackfill
+      tags:
+        - reconciliation.v2
+      description: Create and trigger a historical data backfill from Ledger or Payments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBackfillRequest"
+      responses:
+        "201":
+          description: Backfill created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Backfill"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:write
+
+  /v2/backfill/{backfillID}:
+    get:
+      summary: Get backfill status
+      operationId: v2GetBackfill
+      tags:
+        - reconciliation.v2
+      parameters:
+        - name: backfillID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Backfill"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      security:
+        - Authorization:
+            - reconciliation:read
+
 components:
   parameters:
     PageSize:
       name: pageSize
       in: query
-      description: |
-        The maximum number of results to return per page.
+      description: The maximum number of results to return per page.
       example: 100
       schema:
         type: integer
@@ -161,10 +554,9 @@ components:
       name: cursor
       in: query
       description: |
-        Parameter used in pagination requests. Maximum page size is set to 15.
+        Parameter used in pagination requests.
         Set to the value of next for the next page of results.
         Set to the value of previous for the previous page of results.
-        No other parameters can be set when this parameter is set.
       schema:
         type: string
         example: aHR0cHM6Ly9nLnBhZ2UvTmVrby1SYW1lbj9zaGFyZQ==
@@ -173,17 +565,26 @@ components:
       in: path
       schema:
         type: string
+        format: uuid
       description: The policy ID.
-      example: XXX
       required: true
     ReconciliationID:
       name: reconciliationID
       in: path
       schema:
         type: string
+        format: uuid
       description: The reconciliation ID.
-      example: XXX
       required: true
+    AnomalyID:
+      name: anomalyID
+      in: path
+      schema:
+        type: string
+        format: uuid
+      description: The anomaly ID.
+      required: true
+
   responses:
     NoContent:
       description: No content
@@ -192,116 +593,57 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ServerInfo'
+            $ref: "#/components/schemas/ServerInfo"
     Policies:
       description: OK
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PoliciesCursorResponse'
+            $ref: "#/components/schemas/PoliciesCursorResponse"
     Policy:
       description: OK
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PolicyResponse'
+            $ref: "#/components/schemas/PolicyResponse"
     Reconciliations:
       description: OK
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ReconciliationsCursorResponse'
+            $ref: "#/components/schemas/ReconciliationsCursorResponse"
     Reconciliation:
       description: OK
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ReconciliationResponse'
+            $ref: "#/components/schemas/ReconciliationResponse"
     ErrorResponse:
       description: Error response
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
+
   requestBodies:
     Policy:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PolicyRequest'
+            $ref: "#/components/schemas/PolicyRequest"
     Reconciliation:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ReconciliationRequest'
+            $ref: "#/components/schemas/ReconciliationRequest"
+
   schemas:
     QueryBuilder:
       type: object
       additionalProperties: true
-    PoliciesCursorResponse:
-      type: object
-      required:
-        - cursor
-      properties:
-        cursor:
-          type: object
-          required:
-            - pageSize
-            - hasMore
-            - data
-          properties:
-            pageSize:
-              type: integer
-              format: int64
-              minimum: 1
-              maximum: 1000
-              example: 15
-            hasMore:
-              type: boolean
-              example: false
-            previous:
-              type: string
-              example: YXVsdCBhbmQgYSBtYXhpbXVtIG1heF9yZXN1bHRzLol=
-            next:
-              type: string
-              example: ''
-            data:
-              type: array
-              items:
-                $ref: '#/components/schemas/Policy'
-    ReconciliationsCursorResponse:
-      type: object
-      required:
-        - cursor
-      properties:
-        cursor:
-          type: object
-          required:
-            - pageSize
-            - hasMore
-            - data
-          properties:
-            pageSize:
-              type: integer
-              format: int64
-              minimum: 1
-              maximum: 1000
-              example: 15
-            hasMore:
-              type: boolean
-              example: false
-            previous:
-              type: string
-              example: YXVsdCBhbmQgYSBtYXhpbXVtIG1heF9yZXN1bHRzLol=
-            next:
-              type: string
-              example: ''
-            data:
-              type: array
-              items:
-                $ref: '#/components/schemas/Reconciliation'
+
     ServerInfo:
       type: object
       required:
@@ -309,6 +651,22 @@ components:
       properties:
         version:
           type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - errorCode
+        - errorMessage
+      properties:
+        errorCode:
+          type: string
+          example: VALIDATION
+        errorMessage:
+          type: string
+        details:
+          type: string
+
+    # V1 Schemas
     PolicyRequest:
       type: object
       required:
@@ -319,44 +677,22 @@ components:
       properties:
         name:
           type: string
-          example: XXX
         ledgerName:
           type: string
-          example: default
         ledgerQuery:
           type: object
           additionalProperties: true
         paymentsPoolID:
           type: string
-          example: XXX
+
     PolicyResponse:
       type: object
       required:
         - data
       properties:
         data:
-          $ref: '#/components/schemas/Policy'
-    ReconciliationRequest:
-      type: object
-      required:
-        - reconciledAtLedger
-        - reconciledAtPayments
-      properties:
-        reconciledAtLedger:
-          type: string
-          format: date-time
-          example: '2021-01-01T00:00:00.000Z'
-        reconciledAtPayments:
-          type: string
-          format: date-time
-          example: '2021-01-01T00:00:00.000Z'
-    ReconciliationResponse:
-      type: object
-      required:
-        - data
-      properties:
-        data:
-          $ref: '#/components/schemas/Reconciliation'
+          $ref: "#/components/schemas/Policy"
+
     Policy:
       type: object
       required:
@@ -369,23 +705,69 @@ components:
       properties:
         id:
           type: string
-          example: XXX
         name:
           type: string
-          example: XXX
         createdAt:
           type: string
           format: date-time
-          example: '2021-01-01T00:00:00.000Z'
         ledgerName:
           type: string
-          example: default
         ledgerQuery:
           type: object
           additionalProperties: true
         paymentsPoolID:
           type: string
-          example: XXX
+
+    PoliciesCursorResponse:
+      type: object
+      required:
+        - cursor
+      properties:
+        cursor:
+          $ref: "#/components/schemas/CursorOf_Policy"
+
+    CursorOf_Policy:
+      type: object
+      required:
+        - pageSize
+        - hasMore
+        - data
+      properties:
+        pageSize:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        previous:
+          type: string
+        next:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Policy"
+
+    ReconciliationRequest:
+      type: object
+      required:
+        - reconciledAtLedger
+        - reconciledAtPayments
+      properties:
+        reconciledAtLedger:
+          type: string
+          format: date-time
+        reconciledAtPayments:
+          type: string
+          format: date-time
+
+    ReconciliationResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Reconciliation"
+
     Reconciliation:
       type: object
       required:
@@ -401,25 +783,19 @@ components:
       properties:
         id:
           type: string
-          example: XXX
         policyID:
           type: string
-          example: XXX
         createdAt:
           type: string
           format: date-time
-          example: '2021-01-01T00:00:00.000Z'
         reconciledAtLedger:
           type: string
           format: date-time
-          example: '2021-01-01T00:00:00.000Z'
         reconciledAtPayments:
           type: string
           format: date-time
-          example: '2021-01-01T00:00:00.000Z'
         status:
           type: string
-          example: COMPLETED
         paymentsBalances:
           type: object
           additionalProperties:
@@ -437,16 +813,538 @@ components:
             format: bigint
         error:
           type: string
-    ErrorResponse:
+
+    ReconciliationsCursorResponse:
       type: object
       required:
-        - errorCode
-        - errorMessage
+        - cursor
       properties:
-        errorCode:
+        cursor:
+          $ref: "#/components/schemas/CursorOf_Reconciliation"
+
+    CursorOf_Reconciliation:
+      type: object
+      required:
+        - pageSize
+        - hasMore
+        - data
+      properties:
+        pageSize:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        previous:
           type: string
-          example: VALIDATION
-        errorMessage:
+        next:
           type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reconciliation"
+
+    Report:
+      type: object
+      required:
+        - id
+        - policyID
+        - periodStart
+        - periodEnd
+        - totalTransactions
+        - matchedCount
+        - matchRate
+        - generatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyID:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        totalTransactions:
+          type: integer
+          format: int64
+        matchedCount:
+          type: integer
+          format: int64
+        matchRate:
+          type: number
+          format: double
+        anomaliesByType:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        generatedAt:
+          type: string
+          format: date-time
+
+    # V2 Schemas
+    CreatePolicyV2Request:
+      type: object
+      required:
+        - name
+        - type
+        - ledger
+        - payment
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [balance, transaction]
+        ledger:
+          $ref: "#/components/schemas/LedgerConfig"
+        payment:
+          type: object
+          description: Either PaymentConfigBalance (poolId) or PaymentConfigTransaction (connectorType/connectorId)
+          additionalProperties: true
+        matcher:
+          $ref: "#/components/schemas/MatcherConfig"
+
+    UpdatePolicyV2Request:
+      type: object
+      properties:
+        name:
+          type: string
+        ledger:
+          $ref: "#/components/schemas/LedgerConfig"
+        payment:
+          type: object
+          additionalProperties: true
+        matcher:
+          $ref: "#/components/schemas/MatcherConfig"
+
+    PolicyV2Response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/PolicyV2"
+
+    PolicyV2:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - createdAt
+        - ledger
+        - payment
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [balance, transaction]
+        createdAt:
+          type: string
+          format: date-time
+        ledger:
+          $ref: "#/components/schemas/LedgerConfig"
+        payment:
+          type: object
+          additionalProperties: true
+        matcher:
+          $ref: "#/components/schemas/MatcherConfig"
+
+    PoliciesV2CursorResponse:
+      type: object
+      required:
+        - cursor
+      properties:
+        cursor:
+          type: object
+          required:
+            - pageSize
+            - hasMore
+            - data
+          properties:
+            pageSize:
+              type: integer
+              format: int64
+            hasMore:
+              type: boolean
+            previous:
+              type: string
+            next:
+              type: string
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/PolicyV2"
+
+    LedgerConfig:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        query:
+          type: object
+          additionalProperties: true
+
+    MatcherConfig:
+      type: object
+      properties:
+        deterministicFields:
+          type: array
+          items:
+            type: string
+        scoring:
+          $ref: "#/components/schemas/ScoringConfig"
+
+    ScoringConfig:
+      type: object
+      properties:
+        timeWindowHours:
+          type: integer
+        amountTolerancePercent:
+          type: number
+        metadataFields:
+          type: array
+          items:
+            type: string
+        metadataCaseInsensitive:
+          type: boolean
+        weights:
+          type: object
+          properties:
+            amount:
+              type: number
+            date:
+              type: number
+            metadata:
+              type: number
+        thresholds:
+          type: object
+          properties:
+            autoMatch:
+              type: number
+            review:
+              type: number
+
+    ForceMatchRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        ledger_tx_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        payment_tx_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        reason:
+          type: string
+
+    MatchRequest:
+      type: object
+      required:
+        - transactionIds
+      properties:
+        transactionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+
+    MatchResultsResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchResult"
+
+    MatchResult:
+      type: object
+      required:
+        - transactionId
+        - decision
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [MATCHED, REQUIRES_REVIEW, UNMATCHED, ERROR]
+        match:
+          $ref: "#/components/schemas/Match"
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchCandidate"
+        error:
+          type: string
+
+    Match:
+      type: object
+      required:
+        - id
+        - policyID
+        - score
+        - decision
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyID:
+          type: string
+          format: uuid
+        ledgerTransactionIDs:
+          type: array
+          items:
+            type: string
+            format: uuid
+        paymentsTransactionIDs:
+          type: array
+          items:
+            type: string
+            format: uuid
+        score:
+          type: number
+        decision:
+          type: string
+          enum: [MATCHED, REQUIRES_REVIEW, UNMATCHED, MANUAL, MANUAL_MATCH]
+        explanation:
+          $ref: "#/components/schemas/Explanation"
+        createdAt:
+          type: string
+          format: date-time
+
+    Explanation:
+      type: object
+      properties:
+        reason:
+          type: string
+        score:
+          type: number
+        fieldNotes:
+          type: object
+          additionalProperties:
+            type: string
         details:
+          type: object
+          additionalProperties: true
+
+    MatchCandidate:
+      type: object
+      properties:
+        transactionId:
           type: string
+          format: uuid
+        score:
+          type: number
+        explanation:
+          type: string
+
+    Anomaly:
+      type: object
+      required:
+        - id
+        - policyID
+        - transactionID
+        - type
+        - severity
+        - state
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyID:
+          type: string
+          format: uuid
+        transactionID:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            [
+              MISSING_ON_PAYMENTS,
+              MISSING_ON_LEDGER,
+              DUPLICATE_LEDGER,
+              AMOUNT_MISMATCH,
+            ]
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        state:
+          type: string
+          enum: [open, resolved]
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        resolvedBy:
+          type: string
+
+    AnomalyDetail:
+      allOf:
+        - $ref: "#/components/schemas/Anomaly"
+        - type: object
+          properties:
+            sourceTransaction:
+              $ref: "#/components/schemas/Transaction"
+            candidates:
+              type: array
+              items:
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/Transaction"
+                  score:
+                    type: number
+                  reasons:
+                    type: array
+                    items:
+                      type: string
+
+    Transaction:
+      type: object
+      required:
+        - id
+        - side
+        - provider
+        - externalID
+        - amount
+        - currency
+        - occurredAt
+        - ingestedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyID:
+          type: string
+          format: uuid
+        side:
+          type: string
+          enum: [ledger, payments]
+        provider:
+          type: string
+        externalID:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        ingestedAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    AnomaliesCursorResponse:
+      type: object
+      required:
+        - cursor
+      properties:
+        cursor:
+          type: object
+          required:
+            - pageSize
+            - hasMore
+            - data
+          properties:
+            pageSize:
+              type: integer
+              format: int64
+            hasMore:
+              type: boolean
+            previous:
+              type: string
+            next:
+              type: string
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Anomaly"
+
+    CreateBackfillRequest:
+      type: object
+      required:
+        - source
+        - since
+      properties:
+        source:
+          type: string
+          enum: [ledger, payments]
+          description: Data source to backfill from
+        ledger:
+          type: string
+          description: Specific ledger name (optional, if absent all ledgers are backfilled)
+        since:
+          type: string
+          format: date-time
+          description: Start date for the backfill (RFC3339)
+
+    Backfill:
+      type: object
+      required:
+        - id
+        - source
+        - since
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          enum: [ledger, payments]
+        ledger:
+          type: string
+          nullable: true
+        since:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        ingested:
+          type: integer
+          format: int64
+          default: 0
+        lastCursor:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

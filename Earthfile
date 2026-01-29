@@ -50,6 +50,19 @@ deploy:
     FROM --pass-args core+vcluster-deployer-image
     RUN kubectl patch Versions.formance.com default -p "{\"spec\":{\"reconciliation\": \"${tag}\"}}" --type=merge
 
+deploy-v2:
+    COPY (+sources/*) /src
+    LET tag=$(tar cf - /src | sha1sum | awk '{print $1}')
+    WAIT
+        BUILD --pass-args +build-image --tag=$tag
+    END
+    BUILD --pass-args +deploy-update --tag=$tag
+
+deploy-update:
+    LOCALLY
+    ARG tag=latest
+    RUN kubectl --context=$FORMANCE_DEV_USER-devenv-operator.tailedcc0.ts.net patch Versions.formance.com default -p "{\"spec\":{\"reconciliation\": \"${tag}\"}}" --type=merge
+
 deploy-staging:
     BUILD --pass-args core+deploy-staging
 

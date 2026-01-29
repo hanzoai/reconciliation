@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/formancehq/go-libs/bun/bunpaginate"
+	"github.com/formancehq/go-libs/v3/bun/bunpaginate"
 
 	"github.com/formancehq/formance-sdk-go/v3/pkg/models/operations"
 	"github.com/formancehq/formance-sdk-go/v3/pkg/models/shared"
@@ -14,6 +14,10 @@ import (
 	"github.com/formancehq/reconciliation/internal/storage"
 	"github.com/google/uuid"
 )
+
+func ptrUUID(u uuid.UUID) *uuid.UUID {
+	return &u
+}
 
 type mockSDKFormanceClient struct {
 	ledgerVersion    string
@@ -87,6 +91,18 @@ func (s *mockSDKFormanceClient) V2GetBalancesAggregated(ctx context.Context, req
 	}, nil
 }
 
+func (s *mockSDKFormanceClient) V2ListLedgers(ctx context.Context, req operations.V2ListLedgersRequest) (*operations.V2ListLedgersResponse, error) {
+	return nil, nil
+}
+
+func (s *mockSDKFormanceClient) V2ListTransactions(ctx context.Context, req operations.V2ListTransactionsRequest) (*operations.V2ListTransactionsResponse, error) {
+	return nil, nil
+}
+
+func (s *mockSDKFormanceClient) ListPayments(ctx context.Context, req operations.ListPaymentsRequest) (*operations.ListPaymentsResponse, error) {
+	return nil, nil
+}
+
 type mockStore struct {
 }
 
@@ -114,7 +130,13 @@ func (s *mockStore) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy
 		LedgerName:     "default",
 		LedgerQuery:    map[string]interface{}{},
 		PaymentsPoolID: uuid.New(),
+		Mode:           "balance",
+		Topology:       "1:1",
 	}, nil
+}
+
+func (s *mockStore) UpdatePolicy(ctx context.Context, policy *models.Policy) error {
+	return nil
 }
 
 func (s *mockStore) ListPolicies(ctx context.Context, q storage.GetPoliciesQuery) (*bunpaginate.Cursor[models.Policy], error) {
@@ -131,6 +153,117 @@ func (s *mockStore) GetReconciliation(ctx context.Context, id uuid.UUID) (*model
 
 func (s *mockStore) ListReconciliations(ctx context.Context, q storage.GetReconciliationsQuery) (*bunpaginate.Cursor[models.Reconciliation], error) {
 	return nil, nil
+}
+
+func (s *mockStore) ListMatchesByPolicy(ctx context.Context, q storage.GetMatchesQuery) (*bunpaginate.Cursor[models.Match], error) {
+	return &bunpaginate.Cursor[models.Match]{
+		PageSize: 100,
+		HasMore:  false,
+		Data:     []models.Match{},
+	}, nil
+}
+
+func (s *mockStore) GetMatchByID(ctx context.Context, id uuid.UUID) (*models.Match, error) {
+	return &models.Match{
+		ID:        id,
+		PolicyID:  uuid.New(),
+		Score:     0.95,
+		Decision:  models.DecisionMatched,
+		CreatedAt: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, nil
+}
+
+func (s *mockStore) ListAnomaliesByPolicy(ctx context.Context, q storage.GetAnomaliesQuery) (*bunpaginate.Cursor[models.Anomaly], error) {
+	return &bunpaginate.Cursor[models.Anomaly]{
+		PageSize: 15,
+		HasMore:  false,
+		Data:     []models.Anomaly{},
+	}, nil
+}
+
+func (s *mockStore) GetAnomalyByID(ctx context.Context, id uuid.UUID) (*models.Anomaly, error) {
+	return &models.Anomaly{
+		ID:            id,
+		PolicyID:      uuid.New(),
+		TransactionID: uuid.New(),
+		Type:          models.AnomalyTypeMissingOnPayments,
+		Severity:      models.SeverityCritical,
+		State:         models.AnomalyStateOpen,
+		Reason:        "Test anomaly",
+		CreatedAt:     time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, nil
+}
+
+func (s *mockStore) GetTransactionByID(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	return &models.Transaction{
+		ID:         id,
+		PolicyID:   ptrUUID(uuid.New()),
+		Side:       models.TransactionSideLedger,
+		Provider:   "test-provider",
+		ExternalID: "test-external-id",
+		Amount:     10000,
+		Currency:   "USD",
+		OccurredAt: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+		IngestedAt: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, nil
+}
+
+func (s *mockStore) GetTransactionByExternalIDWithoutPolicy(ctx context.Context, side models.TransactionSide, externalID string) (*models.Transaction, error) {
+	return nil, storage.ErrNotFound
+}
+
+func (s *mockStore) CreateMatch(ctx context.Context, match *models.Match) error {
+	return nil
+}
+
+func (s *mockStore) FindOpenAnomaliesByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) ([]models.Anomaly, error) {
+	return []models.Anomaly{}, nil
+}
+
+func (s *mockStore) ResolveAnomaly(ctx context.Context, id uuid.UUID, resolvedBy string) error {
+	return nil
+}
+
+func (s *mockStore) GetLatestReportByPolicyID(ctx context.Context, policyID uuid.UUID) (*models.Report, error) {
+	return &models.Report{
+		ID:                uuid.New(),
+		PolicyID:          policyID,
+		PeriodStart:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+		PeriodEnd:         time.Date(2021, 1, 31, 23, 59, 59, 0, time.UTC),
+		TotalTransactions: 100,
+		MatchedCount:      90,
+		MatchRate:         0.9,
+		AnomaliesByType:   map[string]int64{},
+		GeneratedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, nil
+}
+
+func (s *mockStore) CountMatchesByDecision(ctx context.Context, policyID uuid.UUID, decision models.Decision) (int64, error) {
+	return 0, nil
+}
+
+func (s *mockStore) CreateAnomaly(ctx context.Context, anomaly *models.Anomaly) error {
+	return nil
+}
+
+func (s *mockStore) GetTransactionsByProvider(ctx context.Context, provider string, side models.TransactionSide) ([]models.Transaction, error) {
+	return []models.Transaction{}, nil
+}
+
+func (s *mockStore) DeleteTransactionsByProvider(ctx context.Context, provider string, side models.TransactionSide) (int64, error) {
+	return 0, nil
+}
+func (s *mockStore) CreateBackfill(ctx context.Context, backfill *models.Backfill) error {
+	return nil
+}
+func (s *mockStore) GetBackfill(ctx context.Context, id uuid.UUID) (*models.Backfill, error) {
+	return nil, nil
+}
+func (s *mockStore) UpdateBackfillStatus(ctx context.Context, id uuid.UUID, status models.BackfillStatus, errorMessage *string) error {
+	return nil
+}
+func (s *mockStore) UpdateBackfillProgress(ctx context.Context, id uuid.UUID, ingested int64, lastCursor *string) error {
+	return nil
 }
 
 var _ Store = (*mockStore)(nil)

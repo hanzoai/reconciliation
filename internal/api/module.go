@@ -2,14 +2,12 @@ package api
 
 import (
 	"context"
-	"errors"
-	"net/http"
-
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-chi/chi/v5"
 
-	"github.com/formancehq/go-libs/api"
-	"github.com/formancehq/go-libs/health"
-	"github.com/formancehq/go-libs/httpserver"
+	"github.com/formancehq/go-libs/v3/api"
+	"github.com/formancehq/go-libs/v3/health"
+	"github.com/formancehq/go-libs/v3/httpserver"
 	"github.com/formancehq/reconciliation/internal/api/backend"
 	"github.com/formancehq/reconciliation/internal/api/service"
 	"github.com/formancehq/reconciliation/internal/storage"
@@ -20,6 +18,7 @@ const (
 	ErrInvalidID            = "INVALID_ID"
 	ErrMissingOrInvalidBody = "MISSING_OR_INVALID_BODY"
 	ErrValidation           = "VALIDATION"
+	ErrPendingReviewMatches = "PENDING_REVIEW_MATCHES"
 )
 
 func healthCheckModule() fx.Option {
@@ -46,21 +45,23 @@ func HTTPModule(serviceInfo api.ServiceInfo, bind string) fx.Option {
 		fx.Provide(fx.Annotate(service.NewSDKFormance, fx.As(new(service.SDKFormance)))),
 		fx.Provide(fx.Annotate(service.NewService, fx.As(new(backend.Service)))),
 		fx.Provide(backend.NewDefaultBackend),
-		fx.Provide(newRouter),
+		fx.Provide(NewRouter),
 	)
 }
 
-func handleServiceErrors(w http.ResponseWriter, r *http.Request, err error) {
-	switch {
-	case errors.Is(err, service.ErrValidation):
-		api.BadRequest(w, ErrValidation, err)
-	case errors.Is(err, service.ErrInvalidID):
-		api.BadRequest(w, ErrInvalidID, err)
-	case errors.Is(err, storage.ErrInvalidQuery):
-		api.BadRequest(w, ErrValidation, err)
-	case errors.Is(err, storage.ErrNotFound):
-		api.NotFound(w, err)
-	default:
-		api.InternalServerError(w, r, err)
-	}
+// HTTPModuleWithPublisher extends HTTPModule with publisher support for backfill events.
+func HTTPModuleWithPublisher(serviceInfo api.ServiceInfo, bind string, publishTopic string) fx.Option {
+	return fx.Options(
+		HTTPModule(serviceInfo, bind),
+		fx.Invoke(func(svc backend.Service, params struct {
+			fx.In
+			Publisher message.Publisher `optional:"true"`
+		}) {
+			if params.Publisher != nil {
+				if s, ok := svc.(*service.Service); ok {
+					s.SetPublisher(params.Publisher, publishTopic)
+				}
+			}
+		}),
+	)
 }
