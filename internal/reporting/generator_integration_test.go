@@ -85,26 +85,6 @@ func createTestPolicy(t *testing.T, db *bun.DB) *models.Policy {
 	return policy
 }
 
-func createTestTransaction(t *testing.T, db *bun.DB, policyID uuid.UUID, side models.TransactionSide, occurredAt time.Time) *models.Transaction {
-	t.Helper()
-	tx := &models.Transaction{
-		ID:         uuid.New(),
-		PolicyID:   &policyID,
-		Side:       side,
-		Provider:   "test-provider",
-		ExternalID: uuid.New().String(),
-		Amount:     1000,
-		Currency:   "USD",
-		OccurredAt: occurredAt,
-		IngestedAt: time.Now().UTC(),
-	}
-
-	_, err := db.NewInsert().Model(tx).Exec(context.Background())
-	require.NoError(t, err)
-
-	return tx
-}
-
 func createTestMatch(t *testing.T, db *bun.DB, policyID uuid.UUID, ledgerTxIDs, paymentTxIDs []uuid.UUID, decision models.Decision, createdAt time.Time) *models.Match {
 	t.Helper()
 	match := &models.Match{
@@ -157,25 +137,23 @@ func TestGeneratorIntegration_Generate(t *testing.T) {
 	from := now.Add(-24 * time.Hour)
 	to := now.Add(1 * time.Hour)
 
-	t.Run("100 transactions 90 matched gives match_rate 0.9", func(t *testing.T) {
-		// Create 100 transactions (50 ledger + 50 payments)
-		var ledgerTxs []*models.Transaction
-		var paymentTxs []*models.Transaction
-
-		for i := 0; i < 50; i++ {
-			ledgerTx := createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-12*time.Hour))
-			ledgerTxs = append(ledgerTxs, ledgerTx)
-
-			paymentTx := createTestTransaction(t, db, policy.ID, models.TransactionSidePayments, now.Add(-12*time.Hour))
-			paymentTxs = append(paymentTxs, paymentTx)
-		}
-
-		// Create 45 matches with MATCHED decision (90 transactions matched: 45 ledger + 45 payments)
+	t.Run("50 matches with 45 MATCHED gives correct counts", func(t *testing.T) {
+		// Create 45 MATCHED matches (90 matched transactions: 45 ledger + 45 payments)
 		for i := 0; i < 45; i++ {
 			createTestMatch(t, db, policy.ID,
-				[]uuid.UUID{ledgerTxs[i].ID},
-				[]uuid.UUID{paymentTxs[i].ID},
+				[]uuid.UUID{uuid.New()},
+				[]uuid.UUID{uuid.New()},
 				models.DecisionMatched,
+				now.Add(-6*time.Hour),
+			)
+		}
+
+		// Create 5 UNMATCHED matches (10 unmatched transactions: 5 ledger + 5 payments)
+		for i := 0; i < 5; i++ {
+			createTestMatch(t, db, policy.ID,
+				[]uuid.UUID{uuid.New()},
+				[]uuid.UUID{uuid.New()},
+				models.DecisionUnmatched,
 				now.Add(-6*time.Hour),
 			)
 		}
@@ -202,7 +180,7 @@ func TestGeneratorIntegration_Generate_ZeroTransactions(t *testing.T) {
 	to := now.Add(1 * time.Hour)
 
 	t.Run("0 transactions gives match_rate 0 without division by zero", func(t *testing.T) {
-		// Don't create any transactions
+		// Don't create any matches
 
 		report, err := generator.Generate(context.Background(), policy.ID, from, to)
 		require.NoError(t, err)
@@ -226,20 +204,19 @@ func TestGeneratorIntegration_Generate_AnomaliesByType(t *testing.T) {
 	to := now.Add(1 * time.Hour)
 
 	t.Run("anomalies_by_type counts correctly by type", func(t *testing.T) {
-		// Create a transaction for the anomalies
-		tx := createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-12*time.Hour))
+		txID := uuid.New()
 
 		// Create anomalies of different types
 		for i := 0; i < 5; i++ {
-			createTestAnomaly(t, db, policy.ID, tx.ID, models.AnomalyTypeMissingOnPayments, now.Add(-6*time.Hour))
+			createTestAnomaly(t, db, policy.ID, txID, models.AnomalyTypeMissingOnPayments, now.Add(-6*time.Hour))
 		}
 		for i := 0; i < 3; i++ {
-			createTestAnomaly(t, db, policy.ID, tx.ID, models.AnomalyTypeMissingOnLedger, now.Add(-6*time.Hour))
+			createTestAnomaly(t, db, policy.ID, txID, models.AnomalyTypeMissingOnLedger, now.Add(-6*time.Hour))
 		}
 		for i := 0; i < 2; i++ {
-			createTestAnomaly(t, db, policy.ID, tx.ID, models.AnomalyTypeDuplicateLedger, now.Add(-6*time.Hour))
+			createTestAnomaly(t, db, policy.ID, txID, models.AnomalyTypeDuplicateLedger, now.Add(-6*time.Hour))
 		}
-		createTestAnomaly(t, db, policy.ID, tx.ID, models.AnomalyTypeAmountMismatch, now.Add(-6*time.Hour))
+		createTestAnomaly(t, db, policy.ID, txID, models.AnomalyTypeAmountMismatch, now.Add(-6*time.Hour))
 
 		report, err := generator.Generate(context.Background(), policy.ID, from, to)
 		require.NoError(t, err)
@@ -285,21 +262,36 @@ func TestGeneratorIntegration_Generate_OnlyCountsWithinPeriod(t *testing.T) {
 	from := now.Add(-24 * time.Hour)
 	to := now
 
-	t.Run("only counts transactions within period", func(t *testing.T) {
-		// Create transaction inside period
-		createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-12*time.Hour))
+	t.Run("only counts matches within period", func(t *testing.T) {
+		// Create match inside period (2 transactions)
+		createTestMatch(t, db, policy.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			now.Add(-12*time.Hour),
+		)
 
-		// Create transaction outside period (before)
-		createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-48*time.Hour))
+		// Create match outside period - before (2 transactions)
+		createTestMatch(t, db, policy.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			now.Add(-48*time.Hour),
+		)
 
-		// Create transaction outside period (after)
-		createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(24*time.Hour))
+		// Create match outside period - after (2 transactions)
+		createTestMatch(t, db, policy.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			now.Add(24*time.Hour),
+		)
 
 		report, err := generator.Generate(context.Background(), policy.ID, from, to)
 		require.NoError(t, err)
 		require.NotNil(t, report)
 
-		require.Equal(t, int64(1), report.TotalTransactions)
+		require.Equal(t, int64(2), report.TotalTransactions)
 	})
 }
 
@@ -315,23 +307,18 @@ func TestGeneratorIntegration_Generate_ManualMatchCountsAsMatched(t *testing.T) 
 	to := now.Add(1 * time.Hour)
 
 	t.Run("MANUAL_MATCH decision counts as matched", func(t *testing.T) {
-		// Create 4 transactions
-		ledgerTx1 := createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-12*time.Hour))
-		paymentTx1 := createTestTransaction(t, db, policy.ID, models.TransactionSidePayments, now.Add(-12*time.Hour))
-		ledgerTx2 := createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-12*time.Hour))
-		paymentTx2 := createTestTransaction(t, db, policy.ID, models.TransactionSidePayments, now.Add(-12*time.Hour))
-
-		// Create 1 MATCHED and 1 MANUAL_MATCH
+		// Create 1 MATCHED match (2 transactions)
 		createTestMatch(t, db, policy.ID,
-			[]uuid.UUID{ledgerTx1.ID},
-			[]uuid.UUID{paymentTx1.ID},
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
 			models.DecisionMatched,
 			now.Add(-6*time.Hour),
 		)
 
+		// Create 1 MANUAL_MATCH (2 transactions)
 		createTestMatch(t, db, policy.ID,
-			[]uuid.UUID{ledgerTx2.ID},
-			[]uuid.UUID{paymentTx2.ID},
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
 			models.DecisionManualMatch,
 			now.Add(-6*time.Hour),
 		)
@@ -358,14 +345,10 @@ func TestGeneratorIntegration_Generate_UnmatchedDoesNotCount(t *testing.T) {
 	to := now.Add(1 * time.Hour)
 
 	t.Run("UNMATCHED decision does not count as matched", func(t *testing.T) {
-		// Create 2 transactions
-		ledgerTx := createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, now.Add(-12*time.Hour))
-		paymentTx := createTestTransaction(t, db, policy.ID, models.TransactionSidePayments, now.Add(-12*time.Hour))
-
-		// Create 1 UNMATCHED match
+		// Create 1 UNMATCHED match (2 transactions)
 		createTestMatch(t, db, policy.ID,
-			[]uuid.UUID{ledgerTx.ID},
-			[]uuid.UUID{paymentTx.ID},
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
 			models.DecisionUnmatched,
 			now.Add(-6*time.Hour),
 		)

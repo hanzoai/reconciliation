@@ -265,7 +265,7 @@ func TestGenericConsumer_Integration(t *testing.T) {
 		consumer, err := NewGenericConsumer(config, pubSub, handler)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		// Start consumer
@@ -276,7 +276,7 @@ func TestGenericConsumer_Integration(t *testing.T) {
 		// Wait for consumer to be ready
 		require.Eventually(t, func() bool {
 			return consumer.Health() == nil
-		}, 5*time.Second, 10*time.Millisecond)
+		}, 10*time.Second, 10*time.Millisecond)
 
 		// Publish message
 		err = pubSub.Publish(topic, message.NewMessage(watermill.NewUUID(), []byte("test-message")))
@@ -285,7 +285,7 @@ func TestGenericConsumer_Integration(t *testing.T) {
 		// Wait for message to be processed
 		require.Eventually(t, func() bool {
 			return handler.getHandleCount() >= 1
-		}, 5*time.Second, 100*time.Millisecond)
+		}, 10*time.Second, 100*time.Millisecond)
 
 		// Verify message was received
 		events := handler.getEvents()

@@ -62,17 +62,25 @@ func (g *Generator) Generate(ctx context.Context, policyID uuid.UUID, from, to t
 }
 
 func (g *Generator) countTransactions(ctx context.Context, policyID uuid.UUID, from, to time.Time) (int64, error) {
-	count, err := g.db.NewSelect().
-		Model((*models.Transaction)(nil)).
-		Where("policy_id = ?", policyID).
-		Where("occurred_at >= ?", from).
-		Where("occurred_at <= ?", to).
-		Count(ctx)
+	// Since transactions are now stored in OpenSearch (not PostgreSQL),
+	// we derive the total transaction count from the match table.
+	// This counts all unique transaction IDs across all matches for the policy in the period.
+	var result struct {
+		Count int64 `bun:"count"`
+	}
+
+	err := g.db.NewRaw(`
+		SELECT COALESCE(SUM(array_length(ledger_tx_ids, 1) + array_length(payment_tx_ids, 1)), 0) as count
+		FROM reconciliations.match
+		WHERE policy_id = ?
+		AND created_at >= ?
+		AND created_at <= ?
+	`, policyID, from, to).Scan(ctx, &result)
 	if err != nil {
 		return 0, err
 	}
 
-	return int64(count), nil
+	return result.Count, nil
 }
 
 func (g *Generator) countMatchedTransactions(ctx context.Context, policyID uuid.UUID, from, to time.Time) (int64, error) {

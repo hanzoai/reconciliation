@@ -274,13 +274,11 @@ func TestBatchBuffer_DBError_NackAll(t *testing.T) {
 
 	buffer.Submit(ctx, msg, tx)
 
-	// Wait for flush
-	time.Sleep(100 * time.Millisecond)
+	// Wait for flush and stop buffer to ensure all processing is complete
+	require.NoError(t, buffer.Stop())
 
 	// Message should be Nacked due to DB error
 	assert.True(t, isNacked(msg))
-
-	require.NoError(t, buffer.Stop())
 }
 
 func TestBatchBuffer_InsertError_NackAll(t *testing.T) {

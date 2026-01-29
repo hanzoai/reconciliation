@@ -26,18 +26,32 @@ func TestSchedulerIntegration_GenerateDailyReports(t *testing.T) {
 		// Calculate D-1 period (what the scheduler will use)
 		periodStart, periodEnd := CalculateDMinusOnePeriod(time.Now().UTC())
 
-		// Create transactions that occurred within the D-1 period for policy1
-		createTestTransaction(t, db, policy1.ID, models.TransactionSideLedger, periodStart.Add(6*time.Hour))
-		createTestTransaction(t, db, policy1.ID, models.TransactionSidePayments, periodStart.Add(6*time.Hour))
+		// Create matches within D-1 period for policy1 (2 transactions: 1 ledger + 1 payment)
+		createTestMatch(t, db, policy1.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			periodStart.Add(6*time.Hour),
+		)
 
-		// Create transactions for policy2 within the D-1 period
-		createTestTransaction(t, db, policy2.ID, models.TransactionSideLedger, periodStart.Add(12*time.Hour))
+		// Create match for policy2 within D-1 period (2 transactions)
+		createTestMatch(t, db, policy2.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			periodStart.Add(12*time.Hour),
+		)
 
-		// Create a transaction outside the D-1 period (2 days ago) - should NOT be counted
+		// Create a match outside the D-1 period (2 days ago) - should NOT be counted
 		twoDaysAgo := periodStart.Add(-24 * time.Hour)
-		createTestTransaction(t, db, policy2.ID, models.TransactionSideLedger, twoDaysAgo)
+		createTestMatch(t, db, policy2.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			twoDaysAgo,
+		)
 
-		// policy3 has no transactions in period
+		// policy3 has no matches in period
 
 		// Create the scheduler and trigger report generation directly
 		config := SchedulerConfig{
@@ -59,7 +73,7 @@ func TestSchedulerIntegration_GenerateDailyReports(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, report2)
 		require.Equal(t, policy2.ID, report2.PolicyID)
-		require.Equal(t, int64(1), report2.TotalTransactions) // Only 1 from D-1, not the one from 2 days ago
+		require.Equal(t, int64(2), report2.TotalTransactions) // Only the D-1 match, not the one from 2 days ago
 
 		report3, err := store.GetLatestReportByPolicyID(context.Background(), policy3.ID)
 		require.NoError(t, err)
@@ -87,9 +101,19 @@ func TestSchedulerIntegration_ErrorOnOnePolicyContinuesWithOthers(t *testing.T) 
 		// Calculate D-1 period
 		periodStart, _ := CalculateDMinusOnePeriod(time.Now().UTC())
 
-		// Create transactions for both policies within D-1 period
-		createTestTransaction(t, db, policy1.ID, models.TransactionSideLedger, periodStart.Add(6*time.Hour))
-		createTestTransaction(t, db, policy2.ID, models.TransactionSideLedger, periodStart.Add(6*time.Hour))
+		// Create matches for both policies within D-1 period
+		createTestMatch(t, db, policy1.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			periodStart.Add(6*time.Hour),
+		)
+		createTestMatch(t, db, policy2.ID,
+			[]uuid.UUID{uuid.New()},
+			[]uuid.UUID{uuid.New()},
+			models.DecisionMatched,
+			periodStart.Add(6*time.Hour),
+		)
 
 		// Create the scheduler
 		config := SchedulerConfig{
@@ -155,20 +179,17 @@ func TestSchedulerIntegration_ReportPersistedInDB(t *testing.T) {
 		// Calculate D-1 period
 		periodStart, _ := CalculateDMinusOnePeriod(time.Now().UTC())
 
-		// Create matched transactions within D-1 period
-		ledgerTx := createTestTransaction(t, db, policy.ID, models.TransactionSideLedger, periodStart.Add(6*time.Hour))
-		paymentTx := createTestTransaction(t, db, policy.ID, models.TransactionSidePayments, periodStart.Add(6*time.Hour))
-
-		// Create a match within the D-1 period
+		// Create a match within the D-1 period (2 transactions)
+		ledgerTxID := uuid.New()
 		createTestMatch(t, db, policy.ID,
-			[]uuid.UUID{ledgerTx.ID},
-			[]uuid.UUID{paymentTx.ID},
+			[]uuid.UUID{ledgerTxID},
+			[]uuid.UUID{uuid.New()},
 			models.DecisionMatched,
 			periodStart.Add(12*time.Hour),
 		)
 
 		// Create an anomaly within D-1 period
-		createTestAnomaly(t, db, policy.ID, ledgerTx.ID, models.AnomalyTypeMissingOnPayments, periodStart.Add(12*time.Hour))
+		createTestAnomaly(t, db, policy.ID, ledgerTxID, models.AnomalyTypeMissingOnPayments, periodStart.Add(12*time.Hour))
 
 		// Create the scheduler and generate reports
 		config := SchedulerConfig{

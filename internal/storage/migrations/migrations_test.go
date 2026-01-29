@@ -40,7 +40,7 @@ func TestMigrationUpDown(t *testing.T) {
 	err = Migrate(ctx, bunDB)
 	require.NoError(t, err, "migration up should succeed")
 
-	// Verify transaction table exists with correct structure
+	// Verify transaction table does NOT exist after migration #19 (dropped in favor of OpenSearch)
 	var exists bool
 	err = bunDB.QueryRowContext(ctx, `
 		SELECT EXISTS (
@@ -50,113 +50,21 @@ func TestMigrationUpDown(t *testing.T) {
 		)
 	`).Scan(&exists)
 	require.NoError(t, err)
-	require.True(t, exists, "transaction table should exist after migration up")
+	require.False(t, exists, "transaction table should not exist after migration #19 (moved to OpenSearch)")
 
-	// Verify columns exist
-	columns := []string{"id", "policy_id", "side", "provider", "external_id", "amount", "currency", "occurred_at", "ingested_at", "metadata"}
-	for _, col := range columns {
-		var colExists bool
+	// Verify other core tables still exist
+	for _, table := range []string{"policy", "reconciliation", "match", "anomaly", "report", "backfill"} {
+		var tableExists bool
 		err = bunDB.QueryRowContext(ctx, `
 			SELECT EXISTS (
-				SELECT FROM information_schema.columns
+				SELECT FROM information_schema.tables
 				WHERE table_schema = 'reconciliations'
-				AND table_name = 'transaction'
-				AND column_name = ?
+				AND table_name = ?
 			)
-		`, col).Scan(&colExists)
+		`, table).Scan(&tableExists)
 		require.NoError(t, err)
-		require.True(t, colExists, "column %s should exist", col)
+		require.True(t, tableExists, "table %s should exist after migration up", table)
 	}
-
-	// Verify UNIQUE constraint on (side, external_id) - after migration #18, policy_id is not part of unique constraint
-	var constraintExists bool
-	err = bunDB.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT FROM information_schema.table_constraints
-			WHERE table_schema = 'reconciliations'
-			AND table_name = 'transaction'
-			AND constraint_name = 'transaction_side_external_id_unique'
-			AND constraint_type = 'UNIQUE'
-		)
-	`).Scan(&constraintExists)
-	require.NoError(t, err)
-	require.True(t, constraintExists, "UNIQUE constraint on (side, external_id) should exist")
-
-	// Verify indexes exist
-	indexes := []string{"transaction_policy_id_side_idx", "transaction_external_id_idx"}
-	for _, idx := range indexes {
-		var indexExists bool
-		err = bunDB.QueryRowContext(ctx, `
-			SELECT EXISTS (
-				SELECT FROM pg_indexes
-				WHERE schemaname = 'reconciliations'
-				AND tablename = 'transaction'
-				AND indexname = ?
-			)
-		`, idx).Scan(&indexExists)
-		require.NoError(t, err)
-		require.True(t, indexExists, "index %s should exist", idx)
-	}
-
-	// Verify foreign key constraint was removed after migration #18 (policy_id is now nullable)
-	var fkExists bool
-	err = bunDB.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT FROM information_schema.table_constraints
-			WHERE table_schema = 'reconciliations'
-			AND table_name = 'transaction'
-			AND constraint_name = 'transaction_policy_fk'
-			AND constraint_type = 'FOREIGN KEY'
-		)
-	`).Scan(&fkExists)
-	require.NoError(t, err)
-	require.False(t, fkExists, "foreign key constraint should not exist after migration #18")
-
-	// Test migration down
-	err = DownTransaction(ctx, bunDB)
-	require.NoError(t, err, "migration down should succeed")
-
-	// Verify transaction table no longer exists
-	err = bunDB.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT FROM information_schema.tables
-			WHERE table_schema = 'reconciliations'
-			AND table_name = 'transaction'
-		)
-	`).Scan(&exists)
-	require.NoError(t, err)
-	require.False(t, exists, "transaction table should not exist after migration down")
-
-	// Verify we can re-create the table manually (proving the down migration is reversible)
-	// Note: after migration #18, policy_id is nullable and unique constraint is on (side, external_id)
-	_, err = bunDB.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS reconciliations.transaction (
-			id uuid NOT NULL,
-			policy_id uuid,
-			side varchar(10) NOT NULL,
-			provider varchar(100) NOT NULL,
-			external_id varchar(255) NOT NULL,
-			amount bigint NOT NULL,
-			currency varchar(3) NOT NULL,
-			occurred_at timestamp with time zone NOT NULL,
-			ingested_at timestamp with time zone NOT NULL,
-			metadata jsonb,
-			CONSTRAINT transaction_pk PRIMARY KEY (id),
-			CONSTRAINT transaction_side_external_id_unique UNIQUE (side, external_id)
-		)
-	`)
-	require.NoError(t, err, "should be able to recreate table after down migration")
-
-	// Verify table exists again
-	err = bunDB.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT FROM information_schema.tables
-			WHERE table_schema = 'reconciliations'
-			AND table_name = 'transaction'
-		)
-	`).Scan(&exists)
-	require.NoError(t, err)
-	require.True(t, exists, "transaction table should exist after re-creating")
 }
 
 func TestMatchMigrationUpDown(t *testing.T) {
@@ -416,7 +324,8 @@ func TestAnomalyMigrationUpDown(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, fkPolicyExists, "foreign key constraint to policy should exist")
 
-	// Verify foreign key constraint to transaction
+	// Verify foreign key constraint to transaction was dropped by migration #19
+	// (transaction table moved to OpenSearch, FK no longer exists)
 	var fkTransactionExists bool
 	err = bunDB.QueryRowContext(ctx, `
 		SELECT EXISTS (
@@ -428,7 +337,7 @@ func TestAnomalyMigrationUpDown(t *testing.T) {
 		)
 	`).Scan(&fkTransactionExists)
 	require.NoError(t, err)
-	require.True(t, fkTransactionExists, "foreign key constraint to transaction should exist")
+	require.False(t, fkTransactionExists, "foreign key constraint to transaction should not exist after migration #19")
 
 	// Test migration down
 	err = DownAnomaly(ctx, bunDB)
