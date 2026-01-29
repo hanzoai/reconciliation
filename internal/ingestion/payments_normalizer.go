@@ -3,6 +3,7 @@ package ingestion
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/formancehq/go-libs/v3/logging"
@@ -32,21 +33,11 @@ func NormalizePaymentsEvent(ctx context.Context, event PaymentsEvent) (*models.T
 		return nil, nil
 	}
 
-	fmt.Printf("[DEBUG-NORMALIZE-PAYMENT] Processing event: type=%s\n", event.Type)
+	logging.FromContext(ctx).Debugf("Processing payments event: type=%s", event.Type)
 
 	// Validate payload exists
 	if event.Payload == nil {
 		return nil, fmt.Errorf("payload is nil")
-	}
-
-	// Debug: show raw payload
-	if createdAt, ok := event.Payload["createdAt"]; ok {
-		fmt.Printf("[DEBUG-NORMALIZE-PAYMENT] Raw createdAt value: %v (type: %T)\n", createdAt, createdAt)
-	} else {
-		fmt.Println("[DEBUG-NORMALIZE-PAYMENT] WARNING: No 'createdAt' field in payload!")
-	}
-	if id, ok := event.Payload["id"]; ok {
-		fmt.Printf("[DEBUG-NORMALIZE-PAYMENT] Payment ID: %v\n", id)
 	}
 
 	// Extract external ID from payment_id (the "id" field in payload)
@@ -94,8 +85,11 @@ func NormalizePaymentsEvent(ctx context.Context, event PaymentsEvent) (*models.T
 		Metadata:   metadata,
 	}
 
-	fmt.Printf("[DEBUG-NORMALIZE-PAYMENT] Created transaction: externalID=%s, provider=%s, occurredAt=%v\n",
-		tx.ExternalID, tx.Provider, tx.OccurredAt)
+	logging.FromContext(ctx).WithFields(map[string]interface{}{
+		"external_id": tx.ExternalID,
+		"provider":    tx.Provider,
+		"occurred_at": tx.OccurredAt,
+	}).Debug("Created payment transaction")
 
 	return tx, nil
 }
@@ -154,6 +148,12 @@ func extractPaymentAmount(payload map[string]interface{}) (int64, error) {
 
 	switch v := amountRaw.(type) {
 	case float64:
+		if math.Trunc(v) != v {
+			return 0, fmt.Errorf("amount has fractional part: %v", v)
+		}
+		if v > float64(math.MaxInt64) || v < float64(math.MinInt64) {
+			return 0, fmt.Errorf("amount overflows int64: %v", v)
+		}
 		return int64(v), nil
 	case int:
 		return int64(v), nil
@@ -200,17 +200,14 @@ func extractCreatedAt(payload map[string]interface{}) (time.Time, error) {
 	case string:
 		// Try RFC3339 format first
 		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			fmt.Printf("[DEBUG-NORMALIZER] Payment createdAt: raw=%v, parsed=%v\n", v, t)
 			return t, nil
 		}
 		// Try RFC3339Nano format
 		if t, err := time.Parse(time.RFC3339Nano, v); err == nil {
-			fmt.Printf("[DEBUG-NORMALIZER] Payment createdAt (nano): raw=%v, parsed=%v\n", v, t)
 			return t, nil
 		}
 		return time.Time{}, fmt.Errorf("invalid createdAt format: %s", v)
 	case time.Time:
-		fmt.Printf("[DEBUG-NORMALIZER] Payment createdAt (time.Time): %v\n", v)
 		return v, nil
 	default:
 		return time.Time{}, fmt.Errorf("unsupported createdAt type: %T", createdAt)

@@ -529,8 +529,8 @@ func TestNormalizeLedgerEvent_TransactionsArrayFormat(t *testing.T) {
 	assert.Equal(t, "orphan-ledger", tx.Metadata["test_scenario"])
 }
 
-// TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions tests that only the first
-// transaction in the array is processed (current implementation limitation).
+// TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions tests that batch
+// transactions are rejected with an explicit error.
 func TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions(t *testing.T) {
 	ctx := context.Background()
 
@@ -569,10 +569,7 @@ func TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions(t *te
 
 	tx, err := NormalizeLedgerEvent(ctx, event)
 
-	require.NoError(t, err)
-	require.NotNil(t, tx)
-
-	// Only the first transaction should be processed
-	assert.Equal(t, "tx-first", tx.ExternalID)
-	assert.Equal(t, int64(100), tx.Amount)
+	require.Error(t, err)
+	assert.Nil(t, tx)
+	assert.Contains(t, err.Error(), "batch transactions are not supported")
 }

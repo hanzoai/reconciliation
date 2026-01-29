@@ -139,7 +139,7 @@ func (c *Client) CreateTransactionIndexTemplate(ctx context.Context, stack strin
 // IndexTransaction indexes a transaction document into a monthly index.
 // The index name follows the pattern: {stack}-reconciliation-{yyyy-mm}
 // where the month is derived from the transaction's OccurredAt field.
-// The document ID is set to the transaction ID to ensure idempotency (no duplicates).
+// The document ID uses {side}_{external_id} to ensure idempotency (no duplicates).
 func (c *Client) IndexTransaction(ctx context.Context, stack string, tx *models.Transaction) error {
 	doc := TransactionDocumentFromModel(tx)
 	docBytes, err := json.Marshal(doc)
@@ -149,7 +149,7 @@ func (c *Client) IndexTransaction(ctx context.Context, stack string, tx *models.
 
 	// Use monthly index based on transaction's OccurredAt date
 	indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
-	docID := tx.ID.String()
+	docID := GenerateDocumentID(tx.Side, tx.ExternalID)
 
 	_, err = c.client.Index(ctx, opensearchapi.IndexReq{
 		Index:      indexName,
@@ -236,12 +236,13 @@ func (c *Client) BulkIndex(ctx context.Context, stack string, transactions []*mo
 	for _, tx := range transactions {
 		doc := TransactionDocumentFromModel(tx)
 		indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
+		docID := GenerateDocumentID(tx.Side, tx.ExternalID)
 
 		// Action line
 		action := map[string]interface{}{
 			"index": map[string]interface{}{
 				"_index": indexName,
-				"_id":    tx.ID.String(),
+				"_id":    docID,
 			},
 		}
 		actionBytes, _ := json.Marshal(action)

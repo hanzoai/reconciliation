@@ -130,11 +130,11 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) (bool, error
 		Indices: []string{indexName},
 	})
 	if err != nil {
-		// Check if it's a 404 error
-		if res != nil && res.Inspect().Response.StatusCode == 404 {
-			return false, nil
-		}
 		return false, fmt.Errorf("failed to delete index: %w", err)
+	}
+
+	if res.Inspect().Response.StatusCode == http.StatusNotFound {
+		return false, nil
 	}
 
 	return true, nil
