@@ -29,8 +29,17 @@ func (s *OpenSearchTransactionStore) Create(ctx context.Context, tx *models.Tran
 
 // CreateBatch indexes multiple transactions in OpenSearch using bulk API.
 // Uses idempotent document IDs ({side}_{external_id}) to prevent duplicates.
-func (s *OpenSearchTransactionStore) CreateBatch(ctx context.Context, txs []*models.Transaction) error {
-	return s.client.BulkIndexIdempotent(ctx, s.stack, txs)
+// Returns a per-item success slice aligned with the input txs slice.
+func (s *OpenSearchTransactionStore) CreateBatch(ctx context.Context, txs []*models.Transaction) ([]bool, error) {
+	results, err := s.client.BulkIndexIdempotent(ctx, s.stack, txs)
+	if err != nil {
+		return nil, err
+	}
+	successes := make([]bool, len(results))
+	for i, r := range results {
+		successes[i] = r.Success
+	}
+	return successes, nil
 }
 
 // GetByID retrieves a transaction by its UUID.

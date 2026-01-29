@@ -216,6 +216,10 @@ func (s *mockStore) CreateMatch(ctx context.Context, match *models.Match) error 
 	return nil
 }
 
+func (s *mockStore) FindMatchByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error) {
+	return nil, nil
+}
+
 func (s *mockStore) FindOpenAnomaliesByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) ([]models.Anomaly, error) {
 	return []models.Anomaly{}, nil
 }

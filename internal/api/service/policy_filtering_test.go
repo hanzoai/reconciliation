@@ -252,6 +252,10 @@ func (m *mockStoreForPolicyFilteringTest) CreateMatch(ctx context.Context, match
 	return nil
 }
 
+func (m *mockStoreForPolicyFilteringTest) FindMatchByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error) {
+	return nil, nil
+}
+
 func (m *mockStoreForPolicyFilteringTest) GetTransactionsByProvider(ctx context.Context, provider string, side models.TransactionSide) ([]models.Transaction, error) {
 	var result []models.Transaction
 	for _, tx := range m.transactionsByProvider[provider] {
@@ -346,8 +350,12 @@ type mockTxStoreForPolicyFilteringTest struct {
 func (m *mockTxStoreForPolicyFilteringTest) Create(ctx context.Context, tx *models.Transaction) error {
 	return nil
 }
-func (m *mockTxStoreForPolicyFilteringTest) CreateBatch(ctx context.Context, txs []*models.Transaction) error {
-	return nil
+func (m *mockTxStoreForPolicyFilteringTest) CreateBatch(ctx context.Context, txs []*models.Transaction) ([]bool, error) {
+	results := make([]bool, len(txs))
+	for i := range results {
+		results[i] = true
+	}
+	return results, nil
 }
 func (m *mockTxStoreForPolicyFilteringTest) GetByID(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	if tx, ok := m.transactions[id]; ok {

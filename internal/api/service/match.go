@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/formancehq/go-libs/v3/logging"
 	"github.com/formancehq/reconciliation/internal/anomaly"
 	"github.com/formancehq/reconciliation/internal/matching"
 	"github.com/formancehq/reconciliation/internal/models"
@@ -96,6 +97,16 @@ func (s *Service) ForceMatch(ctx context.Context, policyIDStr string, req *Force
 	allTxIDs := make([]uuid.UUID, 0, len(ledgerTxIDs)+len(paymentTxIDs))
 	allTxIDs = append(allTxIDs, ledgerTxIDs...)
 	allTxIDs = append(allTxIDs, paymentTxIDs...)
+
+	// Verify all transaction IDs exist in the transaction store
+	for _, txID := range allTxIDs {
+		if _, err := s.txStore.GetByID(ctx, txID); err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				return nil, errors.Wrap(ErrInvalidID, fmt.Sprintf("transaction not found: %s", txID))
+			}
+			return nil, newStorageError(err, fmt.Sprintf("verifying transaction %s", txID))
+		}
+	}
 
 	// Create the match with MANUAL_MATCH decision
 	match := &models.Match{
@@ -214,16 +225,21 @@ func (s *Service) MatchTransactions(ctx context.Context, policyIDStr string, tra
 			}
 			// If an anomaly was detected (not pending), persist it
 			if detectResult != nil && detectResult.Anomaly != nil {
-				fmt.Printf("[DEBUG] Creating anomaly for tx=%s, type=%s, occurredAt=%v\n",
-					tx.ID, detectResult.Anomaly.Type, tx.OccurredAt)
+				logging.FromContext(ctx).WithFields(map[string]interface{}{
+					"transaction_id": tx.ID,
+					"anomaly_type":   detectResult.Anomaly.Type,
+					"occurred_at":    tx.OccurredAt,
+				}).Debug("Creating anomaly for unmatched transaction")
 				if err := s.store.CreateAnomaly(ctx, detectResult.Anomaly); err != nil {
 					result.Error = fmt.Sprintf("failed to persist anomaly: %v", err)
 					results = append(results, result)
 					continue
 				}
 			} else if detectResult != nil && detectResult.Pending {
-				fmt.Printf("[DEBUG] Anomaly pending for tx=%s, occurredAt=%v (still in time window)\n",
-					tx.ID, tx.OccurredAt)
+				logging.FromContext(ctx).WithFields(map[string]interface{}{
+					"transaction_id": tx.ID,
+					"occurred_at":    tx.OccurredAt,
+				}).Debug("Anomaly pending for transaction (still in time window)")
 			}
 		}
 
@@ -354,6 +370,15 @@ func (s *Service) runDeterministicMatching(ctx context.Context, policy *models.P
 		return &matching.MatchResult{
 			Decision: matching.DecisionUnmatched,
 		}, nil
+	}
+
+	// Check if either transaction is already part of an existing match for this policy
+	existingMatch, err := s.store.FindMatchByTransactionIDs(ctx, policy.ID, []uuid.UUID{tx.ID, matchedTx.ID})
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing matches: %w", err)
+	}
+	if existingMatch != nil {
+		return nil, fmt.Errorf("transaction %s or %s is already part of match %s for this policy", tx.ID, matchedTx.ID, existingMatch.ID)
 	}
 
 	// Found a match - create the match record

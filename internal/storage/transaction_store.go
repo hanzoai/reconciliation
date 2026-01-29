@@ -14,7 +14,7 @@ import (
 type TransactionStore interface {
 	// Write operations
 	Create(ctx context.Context, tx *models.Transaction) error
-	CreateBatch(ctx context.Context, txs []*models.Transaction) error
+	CreateBatch(ctx context.Context, txs []*models.Transaction) ([]bool, error)
 
 	// Read operations
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Transaction, error)

@@ -230,13 +230,16 @@ func (b *BatchBuffer) Start(ctx context.Context) error {
 }
 
 // Stop gracefully stops the batch buffer with a final flush.
+// Stop is idempotent and safe to call multiple times.
 func (b *BatchBuffer) Stop() error {
 	b.mu.Lock()
+	if b.stopped {
+		b.mu.Unlock()
+		return nil
+	}
 	b.stopped = true
-	b.mu.Unlock()
-
-	// Signal the flush loop to perform final flush and exit
 	close(b.stopChan)
+	b.mu.Unlock()
 
 	// Wait for flush loop to complete (it will do the final flush)
 	b.wg.Wait()
@@ -473,22 +476,7 @@ func (b *BatchBuffer) processSide(ctx context.Context, items []*BatchItem, side 
 	}
 
 	insertStart := time.Now()
-	if err := b.store.CreateBatch(ctx, txs); err != nil {
-		logger.WithFields(map[string]interface{}{
-			"error": err.Error(),
-		}).Error("Failed to batch insert transactions, Nacking all items")
-		if b.metrics != nil {
-			b.metrics.flushDuration.Record(ctx, time.Since(insertStart).Seconds(),
-				metric.WithAttributes(
-					attribute.String("side", metricsSide),
-					attribute.String("stage", "insert"),
-				),
-			)
-		}
-		b.nackAll(ctx, newItems, metricsSide, "insert_error")
-		return
-	}
-
+	itemResults, err := b.store.CreateBatch(ctx, txs)
 	if b.metrics != nil {
 		b.metrics.flushDuration.Record(ctx, time.Since(insertStart).Seconds(),
 			metric.WithAttributes(
@@ -498,17 +486,36 @@ func (b *BatchBuffer) processSide(ctx context.Context, items []*BatchItem, side 
 		)
 	}
 
-	// 5. Ack all successfully inserted and publish events
-	for _, item := range newItems {
-		item.Message.Ack()
-		b.recordAck(ctx, metricsSide, "success")
-		b.recordIngestionMetrics(ctx, metricsSide, StatusSuccess, item.Transaction.OccurredAt)
-		b.publishTransactionIngested(ctx, item.Transaction)
+	if err != nil {
+		// Transport-level failure: Nack all
+		logger.WithFields(map[string]interface{}{
+			"error": err.Error(),
+		}).Error("Failed to batch insert transactions, Nacking all items")
+		b.nackAll(ctx, newItems, metricsSide, "insert_error")
+		return
+	}
+
+	// 5. Ack/Nack per item based on bulk results
+	var succeeded, failed int
+	for i, item := range newItems {
+		if itemResults[i] {
+			item.Message.Ack()
+			b.recordAck(ctx, metricsSide, "success")
+			b.recordIngestionMetrics(ctx, metricsSide, StatusSuccess, item.Transaction.OccurredAt)
+			b.publishTransactionIngested(ctx, item.Transaction)
+			succeeded++
+		} else {
+			item.Message.Nack()
+			b.recordNack(ctx, metricsSide, "insert_error")
+			b.recordIngestionMetrics(ctx, metricsSide, StatusError, item.Transaction.OccurredAt)
+			failed++
+		}
 	}
 
 	logger.WithFields(map[string]interface{}{
-		"inserted": len(newItems),
-	}).Debug("Successfully inserted batch to OpenSearch")
+		"succeeded": succeeded,
+		"failed":    failed,
+	}).Debug("Batch insert to OpenSearch completed")
 }
 
 // deduplicateInBatch removes duplicate external_ids within the same batch.
@@ -579,9 +586,20 @@ func (b *BatchBuffer) recordIngestionMetrics(ctx context.Context, side, status s
 // Used when batch mode is disabled.
 func (b *BatchBuffer) processSingle(ctx context.Context, msg *message.Message, tx *models.Transaction) {
 	side := tx.Side
-	metricsSide := SideLedger
-	if side == models.TransactionSidePayments {
+	var metricsSide string
+	switch side {
+	case models.TransactionSideLedger:
+		metricsSide = SideLedger
+	case models.TransactionSidePayments:
 		metricsSide = SidePayment
+	default:
+		logging.FromContext(ctx).WithFields(map[string]interface{}{
+			"transaction_id": tx.ID,
+			"external_id":    tx.ExternalID,
+			"unknown_side":   string(tx.Side),
+		}).Error("Rejecting single item with unknown transaction side")
+		msg.Nack()
+		return
 	}
 
 	// Check for duplicate in OpenSearch

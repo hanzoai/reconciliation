@@ -60,6 +60,7 @@ func NewClient(config Config) (*Client, error) {
 	// Configure TLS if needed
 	if len(config.CACert) > 0 || config.SkipTLSVerify {
 		tlsConfig := &tls.Config{
+			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: config.SkipTLSVerify, //nolint:gosec // Configurable for testing
 		}
 

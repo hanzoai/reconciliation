@@ -8,6 +8,7 @@ import (
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 //go:generate mockgen -source matches.go -destination matches_mock.go -package storage . MatchRepository
@@ -164,6 +165,30 @@ func (s *Storage) DeleteMatchesInPeriod(ctx context.Context, policyID uuid.UUID,
 	}
 
 	return rowsAffected, nil
+}
+
+// FindMatchByTransactionIDs finds a match for a policy where any of the given transaction IDs
+// appear in either ledger_tx_ids or payment_tx_ids arrays.
+func (s *Storage) FindMatchByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error) {
+	if len(txIDs) == 0 {
+		return nil, nil
+	}
+
+	var match models.Match
+	err := s.db.NewSelect().
+		Model(&match).
+		Where("policy_id = ?", policyID).
+		Where("(ledger_tx_ids && ? OR payment_tx_ids && ?)", pgdialect.Array(txIDs), pgdialect.Array(txIDs)).
+		Limit(1).
+		Scan(ctx)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, nil
+		}
+		return nil, e("failed to find match by transaction IDs", err)
+	}
+
+	return &match, nil
 }
 
 // CountMatchesByDecision counts the number of matches for a policy with a specific decision.
