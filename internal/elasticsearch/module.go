@@ -221,6 +221,13 @@ func Module() fx.Option {
 	)
 }
 
+// ModuleWithStack creates an fx module for OpenSearch with an explicit stack identifier.
+// Configuration is still read from environment variables; only the stack is overridden.
+// Use this when the stack comes from a CLI flag instead of the STACK environment variable.
+func ModuleWithStack(stack string) fx.Option {
+	return ModuleWithConfig(ConfigFromEnv(), ISMConfigFromEnv(), stack)
+}
+
 // ModuleWithConfig creates an fx module for OpenSearch with explicit configuration.
 // This is useful for testing or when configuration comes from a source other than environment variables.
 func ModuleWithConfig(config Config, ismConfig ISMConfig, stack string) fx.Option {

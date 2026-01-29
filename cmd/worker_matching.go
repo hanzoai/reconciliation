@@ -73,7 +73,7 @@ func runWorkerMatching(cmd *cobra.Command, _ []string) error {
 
 	// Add elasticsearch + shared ingestion modules (provides TransactionStore)
 	options = append(options,
-		elasticsearch.Module(),
+		elasticsearch.ModuleWithStack(stack),
 		ingestion.SharedIngestionModule(ingestion.SharedIngestionConfig{Stack: stack}),
 	)
 

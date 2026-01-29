@@ -76,7 +76,7 @@ func runWorkerIngestion(cmd *cobra.Command, _ []string) error {
 	// Required for TransactionStore dependency
 	stack, _ := cmd.Flags().GetString(stackFlag)
 	options = append(options,
-		elasticsearch.Module(),
+		elasticsearch.ModuleWithStack(stack),
 		ingestion.SharedIngestionModule(ingestion.SharedIngestionConfig{Stack: stack}),
 	)
 
