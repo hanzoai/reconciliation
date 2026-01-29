@@ -182,6 +182,8 @@ type BatchBuffer struct {
 	mu        sync.Mutex
 	items     []*BatchItem
 	flushChan chan struct{}
+	stopChan  chan struct{}
+	stopped   bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -207,6 +209,7 @@ func NewBatchBuffer(
 		topic:      topic,
 		items:      make([]*BatchItem, 0, config.BufferSize),
 		flushChan:  make(chan struct{}, 1),
+		stopChan:   make(chan struct{}),
 	}
 }
 
@@ -228,16 +231,19 @@ func (b *BatchBuffer) Start(ctx context.Context) error {
 
 // Stop gracefully stops the batch buffer with a final flush.
 func (b *BatchBuffer) Stop() error {
-	// Perform final flush before cancelling context, so the flush
-	// has a valid context for store operations.
-	b.flush(FlushTriggerShutdown)
+	b.mu.Lock()
+	b.stopped = true
+	b.mu.Unlock()
+
+	// Signal the flush loop to perform final flush and exit
+	close(b.stopChan)
+
+	// Wait for flush loop to complete (it will do the final flush)
+	b.wg.Wait()
 
 	if b.cancel != nil {
 		b.cancel()
 	}
-
-	// Wait for flush loop to complete
-	b.wg.Wait()
 
 	return nil
 }
@@ -253,6 +259,11 @@ func (b *BatchBuffer) Submit(ctx context.Context, msg *message.Message, tx *mode
 	}
 
 	b.mu.Lock()
+	if b.stopped {
+		b.mu.Unlock()
+		msg.Nack()
+		return
+	}
 	b.items = append(b.items, &BatchItem{
 		Message:     msg,
 		Transaction: tx,
@@ -284,7 +295,9 @@ func (b *BatchBuffer) flushLoop() {
 
 	for {
 		select {
-		case <-b.ctx.Done():
+		case <-b.stopChan:
+			// Perform final flush before exiting (context is still valid)
+			b.flush(FlushTriggerShutdown)
 			return
 		case <-ticker.C:
 			b.flush(FlushTriggerTimer)
