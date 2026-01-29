@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/formancehq/go-libs/bun/bunpaginate"
-	"github.com/formancehq/go-libs/query"
+	"github.com/formancehq/go-libs/v3/bun/bunpaginate"
+	"github.com/formancehq/go-libs/v3/query"
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"

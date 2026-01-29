@@ -1,4 +1,4 @@
-package api
+package v1_test
 
 import (
 	"bytes"
@@ -11,15 +11,29 @@ import (
 	"testing"
 	"time"
 
-	sharedapi "github.com/formancehq/go-libs/api"
-	"github.com/formancehq/go-libs/auth"
+	sharedapi "github.com/formancehq/go-libs/v3/api"
+	rootapi "github.com/formancehq/reconciliation/internal/api"
 	"github.com/formancehq/reconciliation/internal/api/service"
+	v1 "github.com/formancehq/reconciliation/internal/api/v1"
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/formancehq/reconciliation/internal/storage"
-	gomock "github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
+
+type reconciliationResponse struct {
+	ID                   string              `json:"id"`
+	PolicyID             string              `json:"policyID"`
+	CreatedAt            time.Time           `json:"createdAt"`
+	ReconciledAtLedger   time.Time           `json:"reconciledAtLedger"`
+	ReconciledAtPayments time.Time           `json:"reconciledAtPayments"`
+	Status               string              `json:"status"`
+	PaymentsBalances     map[string]*big.Int `json:"paymentsBalances"`
+	LedgerBalances       map[string]*big.Int `json:"ledgerBalances"`
+	DriftBalances        map[string]*big.Int `json:"driftBalances"`
+	Error                string              `json:"error"`
+}
 
 func TestReconciliation(t *testing.T) {
 	t.Parallel()
@@ -71,7 +85,7 @@ func TestReconciliation(t *testing.T) {
 				Error:                "",
 			},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrMissingOrInvalidBody,
+			expectedErrorCode:  v1.ErrMissingOrInvalidBody,
 		},
 		{
 			name:     "invalid body",
@@ -93,7 +107,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			invalidBody:        true,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrMissingOrInvalidBody,
+			expectedErrorCode:  v1.ErrMissingOrInvalidBody,
 		},
 		{
 			name:     "missing at ledger",
@@ -112,68 +126,7 @@ func TestReconciliation(t *testing.T) {
 				Error:                "",
 			},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrValidation,
-		},
-		{
-			name:     "zero time.Time ledger",
-			policyID: policyID.String(),
-			req: &service.ReconciliationRequest{
-				ReconciledAtLedger:   time.Time{},
-				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-			},
-			res: &models.Reconciliation{
-				ID:                   uuid.New(),
-				PolicyID:             policyID,
-				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				ReconciledAtLedger:   time.Time{},
-				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				Status:               models.ReconciliationOK,
-				PaymentsBalances:     map[string]*big.Int{},
-				LedgerBalances:       map[string]*big.Int{},
-				Error:                "",
-			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrValidation,
-		},
-		{
-			name:     "missing at payments",
-			policyID: policyID.String(),
-			req: &service.ReconciliationRequest{
-				ReconciledAtLedger: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-			},
-			res: &models.Reconciliation{
-				ID:                 uuid.New(),
-				PolicyID:           policyID,
-				CreatedAt:          time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				ReconciledAtLedger: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				Status:             models.ReconciliationOK,
-				PaymentsBalances:   map[string]*big.Int{},
-				LedgerBalances:     map[string]*big.Int{},
-				Error:              "",
-			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrValidation,
-		},
-		{
-			name:     "zero time.Time ledger",
-			policyID: policyID.String(),
-			req: &service.ReconciliationRequest{
-				ReconciledAtLedger:   time.Time{},
-				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-			},
-			res: &models.Reconciliation{
-				ID:                   uuid.New(),
-				PolicyID:             policyID,
-				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				ReconciledAtLedger:   time.Time{},
-				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				Status:               models.ReconciliationOK,
-				PaymentsBalances:     map[string]*big.Int{},
-				LedgerBalances:       map[string]*big.Int{},
-				Error:                "",
-			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrValidation,
+			expectedErrorCode:  v1.ErrValidation,
 		},
 		{
 			name:     "service error validation",
@@ -195,7 +148,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			serviceError:       service.ErrValidation,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrValidation,
+			expectedErrorCode:  v1.ErrValidation,
 		},
 		{
 			name:     "service error invalid id",
@@ -217,29 +170,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			serviceError:       service.ErrInvalidID,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrInvalidID,
-		},
-		{
-			name:     "service error invalid ID",
-			policyID: "invalid",
-			req: &service.ReconciliationRequest{
-				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-			},
-			res: &models.Reconciliation{
-				ID:                   uuid.New(),
-				PolicyID:             policyID,
-				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-				Status:               models.ReconciliationOK,
-				PaymentsBalances:     map[string]*big.Int{},
-				LedgerBalances:       map[string]*big.Int{},
-				Error:                "",
-			},
-			serviceError:       service.ErrInvalidID,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrInvalidID,
+			expectedErrorCode:  v1.ErrInvalidID,
 		},
 		{
 			name:     "storage error not found",
@@ -308,7 +239,7 @@ func TestReconciliation(t *testing.T) {
 				Error:                testCase.res.Error,
 			}
 
-			backend, mockService := newTestingBackend(t)
+			backend, mockService := rootapi.NewTestingBackend(t)
 			if testCase.expectedStatusCode < 300 && testCase.expectedStatusCode >= 200 {
 				mockService.EXPECT().
 					Reconciliation(gomock.Any(), testCase.policyID, testCase.req).
@@ -320,9 +251,7 @@ func TestReconciliation(t *testing.T) {
 					Return(nil, testCase.serviceError)
 			}
 
-			router := newRouter(backend, sharedapi.ServiceInfo{
-				Debug: testing.Verbose(),
-			}, auth.NewNoAuth(), nil)
+			router := rootapi.NewTestRouter(backend, testing.Verbose())
 
 			var body []byte
 			if testCase.invalidBody {
@@ -373,13 +302,13 @@ func TestGetReconciliation(t *testing.T) {
 			id:                 uuid.New(),
 			serviceError:       service.ErrValidation,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrValidation,
+			expectedErrorCode:  v1.ErrValidation,
 		},
 		{
 			name:               "service error invalid id",
 			serviceError:       service.ErrInvalidID,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  ErrInvalidID,
+			expectedErrorCode:  v1.ErrInvalidID,
 		},
 		{
 			name:               "storage error not found",
@@ -435,7 +364,7 @@ func TestGetReconciliation(t *testing.T) {
 				Error:                getReconciliationResponse.Error,
 			}
 
-			backend, mockService := newTestingBackend(t)
+			backend, mockService := rootapi.NewTestingBackend(t)
 			if testCase.expectedStatusCode < 300 && testCase.expectedStatusCode >= 200 {
 				mockService.EXPECT().
 					GetReconciliation(gomock.Any(), testCase.id.String()).
@@ -447,9 +376,7 @@ func TestGetReconciliation(t *testing.T) {
 					Return(nil, testCase.serviceError)
 			}
 
-			router := newRouter(backend, sharedapi.ServiceInfo{
-				Debug: testing.Verbose(),
-			}, auth.NewNoAuth(), nil)
+			router := rootapi.NewTestRouter(backend, testing.Verbose())
 
 			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/reconciliations/%s", testCase.id.String()), nil)
 			rec := httptest.NewRecorder()

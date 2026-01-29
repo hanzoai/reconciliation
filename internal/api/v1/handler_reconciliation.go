@@ -1,4 +1,4 @@
-package api
+package v1
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/formancehq/go-libs/api"
-	"github.com/formancehq/go-libs/bun/bunpaginate"
+	"github.com/formancehq/go-libs/v3/api"
+	"github.com/formancehq/go-libs/v3/bun/bunpaginate"
 	"github.com/formancehq/reconciliation/internal/api/backend"
 	"github.com/formancehq/reconciliation/internal/api/service"
 	"github.com/formancehq/reconciliation/internal/storage"
@@ -30,7 +30,7 @@ type reconciliationResponse struct {
 	Error                string              `json:"error"`
 }
 
-func reconciliationHandler(b backend.Backend) http.HandlerFunc {
+func ReconciliationHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req service.ReconciliationRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -73,7 +73,7 @@ func reconciliationHandler(b backend.Backend) http.HandlerFunc {
 	}
 }
 
-func getReconciliationHandler(b backend.Backend) http.HandlerFunc {
+func GetReconciliationHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "reconciliationID")
 
@@ -100,7 +100,7 @@ func getReconciliationHandler(b backend.Backend) http.HandlerFunc {
 	}
 }
 
-func listReconciliationsHandler(b backend.Backend) http.HandlerFunc {
+func ListReconciliationsHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := storage.GetReconciliationsQuery{}
 
@@ -111,7 +111,7 @@ func listReconciliationsHandler(b backend.Backend) http.HandlerFunc {
 				return
 			}
 		} else {
-			options, err := getPaginatedQueryOptionsReconciliations(r)
+			options, err := GetPaginatedQueryOptionsReconciliations(r)
 			if err != nil {
 				api.BadRequest(w, ErrValidation, err)
 				return

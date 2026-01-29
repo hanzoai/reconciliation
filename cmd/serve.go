@@ -4,21 +4,27 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/formancehq/go-libs/aws/iam"
-
-	"github.com/formancehq/go-libs/bun/bunconnect"
-	"github.com/formancehq/go-libs/licence"
+	"github.com/formancehq/go-libs/v3/aws/iam"
+	"github.com/formancehq/go-libs/v3/bun/bunconnect"
+	"github.com/formancehq/go-libs/v3/licence"
+	"github.com/formancehq/go-libs/v3/publish"
 
 	sdk "github.com/formancehq/formance-sdk-go/v3"
-	sharedapi "github.com/formancehq/go-libs/api"
-	"github.com/formancehq/go-libs/auth"
-	"github.com/formancehq/go-libs/otlp"
-	"github.com/formancehq/go-libs/otlp/otlpmetrics"
-	"github.com/formancehq/go-libs/otlp/otlptraces"
-	"github.com/formancehq/go-libs/service"
+	sharedapi "github.com/formancehq/go-libs/v3/api"
+	"github.com/formancehq/go-libs/v3/auth"
+	"github.com/formancehq/go-libs/v3/otlp"
+	"github.com/formancehq/go-libs/v3/otlp/otlpmetrics"
+	"github.com/formancehq/go-libs/v3/otlp/otlptraces"
+	"github.com/formancehq/go-libs/v3/service"
 	"github.com/formancehq/reconciliation/internal/api"
+	api_service "github.com/formancehq/reconciliation/internal/api/service"
+	"github.com/formancehq/reconciliation/internal/elasticsearch"
+	"github.com/formancehq/reconciliation/internal/ingestion"
+	"github.com/formancehq/reconciliation/internal/matching"
+	"github.com/formancehq/reconciliation/internal/reporting"
 	"github.com/formancehq/reconciliation/internal/storage"
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"
@@ -54,6 +60,13 @@ func stackClientModule(cmd *cobra.Command) fx.Option {
 	)
 }
 
+// backfillSDKModule provides the BackfillSDK interface from the Formance SDK client.
+func backfillSDKModule() fx.Option {
+	return fx.Provide(func(client *sdk.Formance) ingestion.BackfillSDK {
+		return api_service.NewSDKFormance(client)
+	})
+}
+
 func newServeCommand(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "serve",
@@ -63,6 +76,11 @@ func newServeCommand(version string) *cobra.Command {
 	cmd.Flags().String(stackURLFlag, "", "Stack url")
 	cmd.Flags().String(stackClientIDFlag, "", "Stack client ID")
 	cmd.Flags().String(stackClientSecretFlag, "", "Stack client secret")
+	cmd.Flags().StringSlice(kafkaTopicsFlag, []string{}, "Kafka topics to listen")
+	cmd.Flags().String(stackFlag, "", "Stack identifier")
+	cmd.Flags().Bool(workerFlag, false, "Enable worker mode (event listener)")
+	cmd.Flags().Int(matchingWorkersFlag, matching.DefaultMatchingWorkers, "Number of concurrent matching workers")
+	cmd.Flags().String(reportScheduleFlag, reporting.DefaultReportSchedule, "Cron schedule for daily report generation (e.g., '0 6 * * *' for 6:00 UTC)")
 
 	otlpmetrics.AddFlags(cmd.Flags())
 	otlptraces.AddFlags(cmd.Flags())
@@ -71,6 +89,7 @@ func newServeCommand(version string) *cobra.Command {
 	iam.AddFlags(cmd.Flags())
 	service.AddFlags(cmd.Flags())
 	licence.AddFlags(cmd.Flags())
+	publish.AddFlags(ServiceName, cmd.Flags())
 
 	return cmd
 }
@@ -85,21 +104,61 @@ func runServer(version string) func(cmd *cobra.Command, args []string) error {
 		options := make([]fx.Option, 0)
 		options = append(options, databaseOptions)
 
+		// Load OTEL resource (required by go-libs v3 for traces/metrics)
+		serviceName, _ := cmd.Flags().GetString(otlp.OtelServiceNameFlag)
+		resourceAttributes, _ := cmd.Flags().GetStringSlice(otlp.OtelResourceAttributesFlag)
 		options = append(options,
+			otlp.LoadResource(serviceName, resourceAttributes, version),
 			otlptraces.FXModuleFromFlags(cmd),
 			otlpmetrics.FXModuleFromFlags(cmd),
 			auth.FXModuleFromFlags(cmd),
 		)
 
 		listen, _ := cmd.Flags().GetString(listenFlag)
+
+		// Always include elasticsearch and shared ingestion modules
+		// because the API service depends on TransactionStore (OpenSearch)
+		stack, _ := cmd.Flags().GetString(stackFlag)
+		options = append(options,
+			elasticsearch.Module(),
+			ingestion.SharedIngestionModule(ingestion.SharedIngestionConfig{Stack: stack}),
+		)
+
 		options = append(options,
 			stackClientModule(cmd),
-			api.HTTPModule(sharedapi.ServiceInfo{
-				Version: version,
-				Debug:   service.IsDebug(cmd),
-			}, listen),
 			licence.FXModuleFromFlags(cmd, ServiceName),
 		)
+
+		// Add worker (ingestion) module if --worker flag is set
+		workerEnabled, _ := cmd.Flags().GetBool(workerFlag)
+		if workerEnabled {
+			options = append(options, backfillSDKModule())
+			options = append(options, api.HTTPModuleWithPublisher(sharedapi.ServiceInfo{
+				Version: version,
+				Debug:   service.IsDebug(cmd),
+			}, listen, stack+".reconciliation"))
+		} else {
+			options = append(options, api.HTTPModule(sharedapi.ServiceInfo{
+				Version: version,
+				Debug:   service.IsDebug(cmd),
+			}, listen))
+		}
+
+		if workerEnabled {
+
+			ingestionOptions, err := prepareIngestionOptions(cmd)
+			if err != nil {
+				return err
+			}
+			options = append(options, ingestionOptions)
+
+			// Add report scheduler module (only with worker)
+			schedulerOptions, err := prepareReportSchedulerOptions(cmd)
+			if err != nil {
+				return err
+			}
+			options = append(options, schedulerOptions)
+		}
 
 		return service.New(cmd.OutOrStdout(), options...).Run(cmd)
 	}
@@ -112,4 +171,64 @@ func prepareDatabaseOptions(cmd *cobra.Command) (fx.Option, error) {
 	}
 
 	return storage.Module(*connectionOptions, service.IsDebug(cmd)), nil
+}
+
+func prepareIngestionOptions(cmd *cobra.Command) (fx.Option, error) {
+	topics, _ := cmd.Flags().GetStringSlice(kafkaTopicsFlag)
+
+	if len(topics) == 0 {
+		return nil, fmt.Errorf("--kafka-topics is required when worker mode is enabled")
+	}
+
+	stack, _ := cmd.Flags().GetString(stackFlag)
+
+	// Note: elasticsearch.Module() and ingestion.SharedIngestionModule() are already
+	// included in runServer() since the API service depends on TransactionStore.
+	// Here we only add worker-specific modules.
+	options := []fx.Option{
+		publish.FXModuleFromFlags(cmd, service.IsDebug(cmd)),
+		ingestion.MetricsModule(),
+	}
+
+	// Use unified ingestion module that handles all event types
+	// This solves the NATS queue group message distribution issue
+	unifiedConfig := ingestion.UnifiedIngestionConfig{
+		Topics:       topics,
+		PublishTopic: stack + ".reconciliation",
+	}
+	options = append(options, ingestion.UnifiedIngestionModule(unifiedConfig))
+
+	return fx.Options(options...), nil
+}
+
+// getReportSchedule returns the report schedule cron expression.
+// It checks the environment variable first, then falls back to the CLI flag.
+func getReportSchedule(cmd *cobra.Command) string {
+	// Check environment variable first
+	envValue := os.Getenv(ReportScheduleEnvVar)
+	if envValue != "" {
+		return envValue
+	}
+
+	// Fall back to CLI flag
+	flagValue, _ := cmd.Flags().GetString(reportScheduleFlag)
+	if flagValue == "" {
+		return reporting.DefaultReportSchedule
+	}
+	return flagValue
+}
+
+func prepareReportSchedulerOptions(cmd *cobra.Command) (fx.Option, error) {
+	schedule := getReportSchedule(cmd)
+
+	// Validate the cron schedule
+	if err := reporting.ParseSchedule(schedule); err != nil {
+		return nil, fmt.Errorf("invalid report schedule '%s': %w", schedule, err)
+	}
+
+	config := reporting.SchedulerConfig{
+		Schedule: schedule,
+	}
+
+	return reporting.SchedulerModule(config), nil
 }

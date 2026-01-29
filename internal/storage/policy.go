@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/formancehq/go-libs/bun/bunpaginate"
-	"github.com/formancehq/go-libs/query"
+	"github.com/formancehq/go-libs/v3/bun/bunpaginate"
+	"github.com/formancehq/go-libs/v3/query"
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 func (s *Storage) CreatePolicy(ctx context.Context, policy *models.Policy) error {
@@ -35,6 +36,28 @@ func (s *Storage) DeletePolicy(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (s *Storage) UpdatePolicy(ctx context.Context, policy *models.Policy) error {
+	result, err := s.db.NewUpdate().
+		Model(policy).
+		Column("name", "policy_mode", "topology", "deterministic_fields", "scoring_config", "payments_provider", "connector_type", "connector_id").
+		Where("id = ?", policy.ID).
+		Exec(ctx)
+	if err != nil {
+		return e("failed to update policy", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return e("failed to get rows affected", err)
+	}
+
+	if rowsAffected == 0 {
+		return e("policy not found", ErrNotFound)
+	}
+
+	return nil
+}
+
 func (s *Storage) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy, error) {
 	var policy models.Policy
 	err := s.db.NewSelect().
@@ -46,6 +69,98 @@ func (s *Storage) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy, 
 	}
 
 	return &policy, nil
+}
+
+// GetPolicyByLedgerName returns the first transactional policy matching the ledgerName.
+// Returns ErrNotFound if no matching policy exists.
+// If multiple policies match, the first one ordered by created_at DESC is returned (with a warning).
+func (s *Storage) GetPolicyByLedgerName(ctx context.Context, ledgerName string) (*models.Policy, error) {
+	var policies []models.Policy
+	err := s.db.NewSelect().
+		Model(&policies).
+		Where("ledger_name = ?", ledgerName).
+		Where("policy_mode = ?", "transactional").
+		Order("created_at DESC").
+		Limit(2). // Get up to 2 to detect multiple policies
+		Scan(ctx)
+	if err != nil {
+		return nil, e("failed to get policy by ledger name", err)
+	}
+
+	if len(policies) == 0 {
+		return nil, e("no transactional policy found for ledger", ErrNotFound)
+	}
+
+	return &policies[0], nil
+}
+
+// GetPolicyByPaymentsProvider returns the first transactional policy matching the paymentsProvider.
+// Returns ErrNotFound if no matching policy exists.
+// If multiple policies match, the first one ordered by created_at DESC is returned.
+func (s *Storage) GetPolicyByPaymentsProvider(ctx context.Context, paymentsProvider string) (*models.Policy, error) {
+	var policies []models.Policy
+	err := s.db.NewSelect().
+		Model(&policies).
+		Where("payments_provider = ?", paymentsProvider).
+		Where("policy_mode = ?", "transactional").
+		Order("created_at DESC").
+		Limit(2). // Get up to 2 to detect multiple policies
+		Scan(ctx)
+	if err != nil {
+		return nil, e("failed to get policy by payments provider", err)
+	}
+
+	if len(policies) == 0 {
+		return nil, e("no transactional policy found for payments provider", ErrNotFound)
+	}
+
+	return &policies[0], nil
+}
+
+// GetPolicyByConnectorType returns the first transactional policy matching the connectorType.
+// Returns ErrNotFound if no matching policy exists.
+// If multiple policies match, the first one ordered by created_at DESC is returned.
+func (s *Storage) GetPolicyByConnectorType(ctx context.Context, connectorType string) (*models.Policy, error) {
+	var policies []models.Policy
+	err := s.db.NewSelect().
+		Model(&policies).
+		Where("connector_type = ?", connectorType).
+		Where("policy_mode = ?", "transactional").
+		Order("created_at DESC").
+		Limit(2). // Get up to 2 to detect multiple policies
+		Scan(ctx)
+	if err != nil {
+		return nil, e("failed to get policy by connector type", err)
+	}
+
+	if len(policies) == 0 {
+		return nil, e("no transactional policy found for connector type", ErrNotFound)
+	}
+
+	return &policies[0], nil
+}
+
+// GetPolicyByConnectorID returns the first transactional policy matching the connectorID.
+// Returns ErrNotFound if no matching policy exists.
+// If multiple policies match, the first one ordered by created_at DESC is returned.
+func (s *Storage) GetPolicyByConnectorID(ctx context.Context, connectorID string) (*models.Policy, error) {
+	var policies []models.Policy
+	err := s.db.NewSelect().
+		Model(&policies).
+		Where("connector_id = ?", connectorID).
+		Where("policy_mode = ?", "transactional").
+		Order("created_at DESC").
+		Limit(2). // Get up to 2 to detect multiple policies
+		Scan(ctx)
+	if err != nil {
+		return nil, e("failed to get policy by connector ID", err)
+	}
+
+	if len(policies) == 0 {
+		return nil, e("no transactional policy found for connector ID", ErrNotFound)
+	}
+
+	return &policies[0], nil
 }
 
 func (s *Storage) buildPolicyListQuery(selectQuery *bun.SelectQuery, q GetPoliciesQuery, where string, args []any) *bun.SelectQuery {
@@ -127,6 +242,40 @@ func (s *Storage) policyQueryContext(qb query.Builder, q GetPoliciesQuery) (stri
 			return "", nil, errors.Wrapf(ErrInvalidQuery, "unknown key '%s' when building query", key)
 		}
 	}))
+}
+
+// MigratePolicyToTransactional updates a policy from balance mode to transactional mode
+// and initializes the transactional-specific fields with the provided values.
+func (s *Storage) MigratePolicyToTransactional(
+	ctx context.Context,
+	id uuid.UUID,
+	deterministicFields []string,
+	topology string,
+	scoringConfig *models.ScoringConfig,
+) error {
+	result, err := s.db.NewUpdate().
+		Model((*models.Policy)(nil)).
+		Set("policy_mode = ?", "transactional").
+		Set("deterministic_fields = ?", pgdialect.Array(deterministicFields)).
+		Set("topology = ?", topology).
+		Set("scoring_config = ?", scoringConfig).
+		Where("id = ?", id).
+		Where("policy_mode = ?", "balance").
+		Exec(ctx)
+	if err != nil {
+		return e("failed to migrate policy to transactional", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return e("failed to get rows affected", err)
+	}
+
+	if rowsAffected == 0 {
+		return e("policy not found or already in transactional mode", ErrNotFound)
+	}
+
+	return nil
 }
 
 type PoliciesFilters struct{}

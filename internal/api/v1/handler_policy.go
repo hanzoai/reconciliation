@@ -1,4 +1,4 @@
-package api
+package v1
 
 import (
 	"encoding/json"
@@ -8,10 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/formancehq/go-libs/api"
-	"github.com/formancehq/go-libs/bun/bunpaginate"
+	"github.com/formancehq/go-libs/v3/api"
+	"github.com/formancehq/go-libs/v3/bun/bunpaginate"
 	"github.com/formancehq/reconciliation/internal/api/backend"
 	"github.com/formancehq/reconciliation/internal/api/service"
+	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/formancehq/reconciliation/internal/storage"
 )
 
@@ -22,13 +23,39 @@ type policyResponse struct {
 	LedgerName     string                 `json:"ledgerName"`
 	LedgerQuery    map[string]interface{} `json:"ledgerQuery"`
 	PaymentsPoolID string                 `json:"paymentsPoolID"`
+
+	// Transactional reconciliation fields
+	Mode                string                `json:"mode"`
+	Topology            string                `json:"topology"`
+	DeterministicFields []string              `json:"deterministicFields,omitempty"`
+	ScoringConfig       *models.ScoringConfig `json:"scoringConfig,omitempty"`
 }
 
-func createPolicyHandler(b backend.Backend) http.HandlerFunc {
+func policyToResponse(policy *models.Policy) *policyResponse {
+	return &policyResponse{
+		ID:                  policy.ID.String(),
+		Name:                policy.Name,
+		CreatedAt:           policy.CreatedAt,
+		LedgerName:          policy.LedgerName,
+		LedgerQuery:         policy.LedgerQuery,
+		PaymentsPoolID:      policy.PaymentsPoolID.String(),
+		Mode:                policy.Mode,
+		Topology:            policy.Topology,
+		DeterministicFields: policy.DeterministicFields,
+		ScoringConfig:       policy.ScoringConfig,
+	}
+}
+
+func CreatePolicyHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req service.CreatePolicyRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			api.BadRequest(w, ErrMissingOrInvalidBody, err)
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			api.BadRequest(w, ErrValidation, err)
 			return
 		}
 
@@ -38,20 +65,11 @@ func createPolicyHandler(b backend.Backend) http.HandlerFunc {
 			return
 		}
 
-		data := &policyResponse{
-			ID:             policy.ID.String(),
-			Name:           policy.Name,
-			CreatedAt:      policy.CreatedAt,
-			LedgerName:     policy.LedgerName,
-			LedgerQuery:    policy.LedgerQuery,
-			PaymentsPoolID: policy.PaymentsPoolID.String(),
-		}
-
-		api.Created(w, data)
+		api.Created(w, policyToResponse(policy))
 	}
 }
 
-func deletePolicyHandler(b backend.Backend) http.HandlerFunc {
+func DeletePolicyHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "policyID")
 
@@ -65,7 +83,7 @@ func deletePolicyHandler(b backend.Backend) http.HandlerFunc {
 	}
 }
 
-func getPolicyHandler(b backend.Backend) http.HandlerFunc {
+func GetPolicyHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "policyID")
 
@@ -75,20 +93,36 @@ func getPolicyHandler(b backend.Backend) http.HandlerFunc {
 			return
 		}
 
-		data := &policyResponse{
-			ID:             policy.ID.String(),
-			Name:           policy.Name,
-			CreatedAt:      policy.CreatedAt,
-			LedgerName:     policy.LedgerName,
-			LedgerQuery:    policy.LedgerQuery,
-			PaymentsPoolID: policy.PaymentsPoolID.String(),
-		}
-
-		api.Ok(w, data)
+		api.Ok(w, policyToResponse(policy))
 	}
 }
 
-func listPoliciesHandler(b backend.Backend) http.HandlerFunc {
+func UpdatePolicyHandler(b backend.Backend) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "policyID")
+
+		var req service.UpdatePolicyRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			api.BadRequest(w, ErrMissingOrInvalidBody, err)
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			api.BadRequest(w, ErrValidation, err)
+			return
+		}
+
+		policy, err := b.GetService().UpdatePolicy(r.Context(), id, &req)
+		if err != nil {
+			handleServiceErrors(w, r, err)
+			return
+		}
+
+		api.Ok(w, policyToResponse(policy))
+	}
+}
+
+func ListPoliciesHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := storage.GetPoliciesQuery{}
 
@@ -99,7 +133,7 @@ func listPoliciesHandler(b backend.Backend) http.HandlerFunc {
 				return
 			}
 		} else {
-			options, err := getPaginatedQueryOptionsPolicies(r)
+			options, err := GetPaginatedQueryOptionsPolicies(r)
 			if err != nil {
 				api.BadRequest(w, ErrValidation, err)
 				return

@@ -3,8 +3,8 @@ package storage
 import (
 	"context"
 
-	"github.com/formancehq/go-libs/bun/bunconnect"
-	"github.com/formancehq/go-libs/logging"
+	"github.com/formancehq/go-libs/v3/bun/bunconnect"
+	"github.com/formancehq/go-libs/v3/logging"
 	"github.com/uptrace/bun"
 	"go.uber.org/fx"
 )

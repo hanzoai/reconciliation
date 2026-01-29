@@ -1,18 +1,17 @@
-package api
+package v2
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
-	"github.com/formancehq/go-libs/bun/bunpaginate"
+	"github.com/formancehq/go-libs/v3/bun/bunpaginate"
+	"github.com/pkg/errors"
 )
 
 const (
 	MaxPageSize     = 100
 	DefaultPageSize = bunpaginate.QueryDefaultPageSize
 
-	QueryKeyCursor   = "cursor"
 	QueryKeyPageSize = "pageSize"
 )
 
