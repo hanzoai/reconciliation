@@ -3,6 +3,7 @@ package matching
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -167,6 +168,13 @@ func (c *MatchingConsumer) handleMessage(ctx context.Context, msg *message.Messa
 
 	tx, err := c.txStore.GetByID(ctx, txID)
 	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			logger.WithFields(map[string]interface{}{
+				"transactionId": payload.TransactionID,
+			}).Info("Transaction not found in store, skipping")
+			msg.Ack()
+			return
+		}
 		logger.WithFields(map[string]interface{}{
 			"error":         err.Error(),
 			"transactionId": payload.TransactionID,
