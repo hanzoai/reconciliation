@@ -57,11 +57,12 @@ func (mr *MockTransactionStoreMockRecorder) Create(ctx, tx any) *gomock.Call {
 }
 
 // CreateBatch mocks base method.
-func (m *MockTransactionStore) CreateBatch(ctx context.Context, txs []*models.Transaction) error {
+func (m *MockTransactionStore) CreateBatch(ctx context.Context, txs []*models.Transaction) ([]bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateBatch", ctx, txs)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].([]bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateBatch indicates an expected call of CreateBatch.

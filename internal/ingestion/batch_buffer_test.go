@@ -144,7 +144,13 @@ func TestBatchBuffer_FlushBySize(t *testing.T) {
 	// Expect batch insert
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Any()).
-		Return(nil)
+		DoAndReturn(func(_ context.Context, txs []*models.Transaction) ([]bool, error) {
+			results := make([]bool, len(txs))
+			for i := range results {
+				results[i] = true
+			}
+			return results, nil
+		})
 
 	// Submit all items
 	for i := 0; i < 3; i++ {
@@ -193,7 +199,7 @@ func TestBatchBuffer_FlushByTimeout(t *testing.T) {
 	// Expect batch insert
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Any()).
-		Return(nil)
+		DoAndReturn(allSuccessCreateBatch)
 
 	buffer.Submit(ctx, msg, tx)
 
@@ -311,7 +317,7 @@ func TestBatchBuffer_InsertError_NackAll(t *testing.T) {
 	// Expect batch insert - return error
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Any()).
-		Return(assert.AnError)
+		Return(nil, assert.AnError)
 
 	buffer.Submit(ctx, msg, tx)
 
@@ -362,7 +368,7 @@ func TestBatchBuffer_SideSeparation(t *testing.T) {
 	// Expect separate batch inserts for each side
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Any()).
-		Return(nil).
+		DoAndReturn(allSuccessCreateBatch).
 		Times(2)
 
 	buffer.Submit(ctx, ledgerMsg, ledgerTx)
@@ -412,7 +418,7 @@ func TestBatchBuffer_InBatchDeduplication(t *testing.T) {
 	// Expect only ONE transaction to be inserted (second is deduplicated in-batch)
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Len(1)).
-		Return(nil)
+		DoAndReturn(allSuccessCreateBatch)
 
 	buffer.Submit(ctx, msg1, tx1)
 	buffer.Submit(ctx, msg2, tx2)
@@ -454,7 +460,7 @@ func TestBatchBuffer_ConcurrentSubmit(t *testing.T) {
 
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Any()).
-		Return(nil).
+		DoAndReturn(allSuccessCreateBatch).
 		AnyTimes()
 
 	// Submit from multiple goroutines
@@ -518,7 +524,7 @@ func TestBatchBuffer_ShutdownFlush(t *testing.T) {
 
 	mockStore.EXPECT().
 		CreateBatch(gomock.Any(), gomock.Any()).
-		Return(nil)
+		DoAndReturn(allSuccessCreateBatch)
 
 	// Stop should trigger final flush
 	require.NoError(t, buffer.Stop())
@@ -564,4 +570,13 @@ func isNacked(m *message.Message) bool {
 	default:
 		return false
 	}
+}
+
+// allSuccessCreateBatch is a DoAndReturn helper that returns all-true results for CreateBatch.
+func allSuccessCreateBatch(_ context.Context, txs []*models.Transaction) ([]bool, error) {
+	results := make([]bool, len(txs))
+	for i := range results {
+		results[i] = true
+	}
+	return results, nil
 }

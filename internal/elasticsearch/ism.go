@@ -56,7 +56,7 @@ func ismPolicyBody(stack string, config ISMConfig) map[string]interface{} {
 				{
 					"state_name": "warm",
 					"conditions": map[string]interface{}{
-						"min_index_age": fmt.Sprintf("%dd", config.WarmPhaseRolloverDays),
+						"min_index_age": fmt.Sprintf("%dd", config.HotPhaseDays),
 					},
 				},
 			},

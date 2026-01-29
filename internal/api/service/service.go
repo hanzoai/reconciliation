@@ -30,6 +30,7 @@ type Store interface {
 	ListMatchesByPolicy(ctx context.Context, q storage.GetMatchesQuery) (*bunpaginate.Cursor[models.Match], error)
 	GetMatchByID(ctx context.Context, id uuid.UUID) (*models.Match, error)
 	CreateMatch(ctx context.Context, match *models.Match) error
+	FindMatchByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error)
 	CountMatchesByDecision(ctx context.Context, policyID uuid.UUID, decision models.Decision) (int64, error)
 
 	ListAnomaliesByPolicy(ctx context.Context, q storage.GetAnomaliesQuery) (*bunpaginate.Cursor[models.Anomaly], error)

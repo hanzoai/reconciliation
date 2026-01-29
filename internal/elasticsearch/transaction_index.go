@@ -571,11 +571,18 @@ func (c *Client) GetTransactionsByProvider(ctx context.Context, stack string, pr
 	return transactions, nil
 }
 
+// BulkItemResult represents the result of a single item in a bulk operation.
+type BulkItemResult struct {
+	Success bool
+	Error   string // Non-empty if Success is false
+}
+
 // BulkIndexIdempotent indexes transactions using {side}_{external_id} as document ID.
 // This ensures idempotency - duplicate transactions will be overwritten.
-func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transactions []*models.Transaction) error {
+// Returns per-item results so callers can Ack/Nack individually.
+func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transactions []*models.Transaction) ([]BulkItemResult, error) {
 	if len(transactions) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Build bulk request body
@@ -594,7 +601,7 @@ func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transact
 		}
 		actionBytes, err := json.Marshal(action)
 		if err != nil {
-			return fmt.Errorf("failed to marshal bulk action for transaction %s: %w", tx.ExternalID, err)
+			return nil, fmt.Errorf("failed to marshal bulk action for transaction %s: %w", tx.ExternalID, err)
 		}
 		buf.Write(actionBytes)
 		buf.WriteByte('\n')
@@ -602,7 +609,7 @@ func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transact
 		// Document line
 		docBytes, err := json.Marshal(doc)
 		if err != nil {
-			return fmt.Errorf("failed to marshal bulk document for transaction %s: %w", tx.ExternalID, err)
+			return nil, fmt.Errorf("failed to marshal bulk document for transaction %s: %w", tx.ExternalID, err)
 		}
 		buf.Write(docBytes)
 		buf.WriteByte('\n')
@@ -612,22 +619,23 @@ func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transact
 		Body: &buf,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to bulk index transactions: %w", err)
+		return nil, fmt.Errorf("failed to bulk index transactions: %w", err)
 	}
 
-	// Check for errors in response
-	if res.Errors {
-		// Extract first error for debugging
-		for _, item := range res.Items {
-			for _, result := range item {
-				if result.Error != nil {
-					return fmt.Errorf("bulk index error: %s - %s", result.Error.Type, result.Error.Reason)
-				}
+	// Build per-item results
+	results := make([]BulkItemResult, len(transactions))
+	for i, item := range res.Items {
+		result := BulkItemResult{Success: true}
+		for _, r := range item {
+			if r.Error != nil {
+				result.Success = false
+				result.Error = fmt.Sprintf("%s - %s", r.Error.Type, r.Error.Reason)
 			}
 		}
+		results[i] = result
 	}
 
-	return nil
+	return results, nil
 }
 
 // CreateTransaction indexes a single transaction with idempotent document ID.

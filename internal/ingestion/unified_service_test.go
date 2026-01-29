@@ -515,8 +515,12 @@ func (m *mockTransactionStore) Create(ctx context.Context, tx *models.Transactio
 	return nil
 }
 
-func (m *mockTransactionStore) CreateBatch(ctx context.Context, txs []*models.Transaction) error {
-	return nil
+func (m *mockTransactionStore) CreateBatch(ctx context.Context, txs []*models.Transaction) ([]bool, error) {
+	results := make([]bool, len(txs))
+	for i := range results {
+		results[i] = true
+	}
+	return results, nil
 }
 
 func (m *mockTransactionStore) GetByID(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
