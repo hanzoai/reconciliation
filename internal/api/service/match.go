@@ -307,7 +307,7 @@ func (s *Service) runDeterministicMatching(ctx context.Context, policy *models.P
 	var matchedTx *models.Transaction
 	var matchReason string
 
-	if len(policy.DeterministicFields) > 0 && !(len(policy.DeterministicFields) == 1 && policy.DeterministicFields[0] == "external_id") {
+	if len(policy.DeterministicFields) > 0 && (len(policy.DeterministicFields) != 1 || policy.DeterministicFields[0] != "external_id") {
 		// Use configured deterministic fields to search
 		for _, field := range policy.DeterministicFields {
 			var fieldValue string
