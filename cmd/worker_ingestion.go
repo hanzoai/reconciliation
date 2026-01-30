@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/formancehq/go-libs/v3/aws/iam"
@@ -73,6 +74,12 @@ func runWorkerIngestion(cmd *cobra.Command, _ []string) error {
 	// Add elasticsearch and shared ingestion modules
 	// Required for TransactionStore dependency
 	stack, _ := cmd.Flags().GetString(stackFlag)
+	if stack == "" {
+		stack = elasticsearch.GetStackFromEnv()
+	}
+	if stack == "" {
+		return fmt.Errorf("stack identifier is required for ingestion (use --%s or %s env var)", stackFlag, elasticsearch.StackEnvVar)
+	}
 	options = append(options,
 		elasticsearch.ModuleWithStack(stack),
 		ingestion.SharedIngestionModule(ingestion.SharedIngestionConfig{Stack: stack}),
