@@ -341,11 +341,10 @@ func TestGenericConsumer_Integration(t *testing.T) {
 		err = pubSub.Publish(topic, message.NewMessage(watermill.NewUUID(), []byte("retry-message")))
 		require.NoError(t, err)
 
-		// Wait a bit for processing
-		time.Sleep(500 * time.Millisecond)
-
-		// Verify handler was called at least once
-		assert.GreaterOrEqual(t, attemptCount.Load(), int64(1))
+		// Wait for processing
+		require.Eventually(t, func() bool {
+			return attemptCount.Load() >= 1
+		}, 5*time.Second, 10*time.Millisecond)
 
 		consumer.Stop()
 	})

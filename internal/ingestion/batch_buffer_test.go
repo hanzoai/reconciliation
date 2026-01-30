@@ -158,12 +158,14 @@ func TestBatchBuffer_FlushBySize(t *testing.T) {
 	}
 
 	// Wait for flush to complete
-	time.Sleep(200 * time.Millisecond)
-
-	// All messages should be Acked
-	for i, msg := range msgs {
-		assert.True(t, isAcked(msg), "message %d should be Acked", i)
-	}
+	require.Eventually(t, func() bool {
+		for _, msg := range msgs {
+			if !isAcked(msg) {
+				return false
+			}
+		}
+		return true
+	}, 2*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, buffer.Stop())
 }
@@ -204,9 +206,9 @@ func TestBatchBuffer_FlushByTimeout(t *testing.T) {
 	buffer.Submit(ctx, msg, tx)
 
 	// Wait for timeout flush
-	time.Sleep(150 * time.Millisecond)
-
-	assert.True(t, isAcked(msg))
+	require.Eventually(t, func() bool {
+		return isAcked(msg)
+	}, 2*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, buffer.Stop())
 }
@@ -243,10 +245,9 @@ func TestBatchBuffer_DuplicateHandling(t *testing.T) {
 	buffer.Submit(ctx, msg, tx)
 
 	// Wait for flush
-	time.Sleep(100 * time.Millisecond)
-
-	// Message should still be Acked (duplicate is not an error)
-	assert.True(t, isAcked(msg))
+	require.Eventually(t, func() bool {
+		return isAcked(msg)
+	}, 2*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, buffer.Stop())
 }
@@ -322,10 +323,9 @@ func TestBatchBuffer_InsertError_NackAll(t *testing.T) {
 	buffer.Submit(ctx, msg, tx)
 
 	// Wait for flush
-	time.Sleep(100 * time.Millisecond)
-
-	// Message should be Nacked due to insert error
-	assert.True(t, isNacked(msg))
+	require.Eventually(t, func() bool {
+		return isNacked(msg)
+	}, 2*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, buffer.Stop())
 }
@@ -375,10 +375,9 @@ func TestBatchBuffer_SideSeparation(t *testing.T) {
 	buffer.Submit(ctx, paymentMsg, paymentTx)
 
 	// Wait for flush
-	time.Sleep(100 * time.Millisecond)
-
-	assert.True(t, isAcked(ledgerMsg))
-	assert.True(t, isAcked(paymentMsg))
+	require.Eventually(t, func() bool {
+		return isAcked(ledgerMsg) && isAcked(paymentMsg)
+	}, 2*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, buffer.Stop())
 }
@@ -424,11 +423,9 @@ func TestBatchBuffer_InBatchDeduplication(t *testing.T) {
 	buffer.Submit(ctx, msg2, tx2)
 
 	// Wait for flush
-	time.Sleep(100 * time.Millisecond)
-
-	// Both should be Acked
-	assert.True(t, isAcked(msg1))
-	assert.True(t, isAcked(msg2))
+	require.Eventually(t, func() bool {
+		return isAcked(msg1) && isAcked(msg2)
+	}, 2*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, buffer.Stop())
 }
@@ -486,7 +483,14 @@ func TestBatchBuffer_ConcurrentSubmit(t *testing.T) {
 	wg.Wait()
 
 	// Wait for flush
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		for _, msg := range msgs {
+			if msg == nil || !isAcked(msg) {
+				return false
+			}
+		}
+		return true
+	}, 2*time.Second, 10*time.Millisecond)
 
 	// No panic or race condition should occur
 	require.NoError(t, buffer.Stop())

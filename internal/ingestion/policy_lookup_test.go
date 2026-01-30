@@ -92,7 +92,10 @@ func TestCachingPolicyLookupService_GetPolicyByLedgerName(t *testing.T) {
 		require.Equal(t, 1, service.fetchCount)
 
 		// Wait for TTL to expire
-		time.Sleep(5 * time.Millisecond)
+		expiry := time.Now().Add(service.cacheTTL)
+		require.Eventually(t, func() bool {
+			return time.Now().After(expiry)
+		}, 100*time.Millisecond, 1*time.Millisecond)
 
 		// Second call should refetch
 		_, err = service.GetPolicyByLedgerName(ctx, "test-ledger")
