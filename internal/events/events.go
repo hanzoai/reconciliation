@@ -48,7 +48,7 @@ func NewTransactionIngestedEvent(tx *models.Transaction) Event {
 	return Event{
 		App:     AppName,
 		Version: EventVersion,
-		Date:    time.Now(),
+		Date:    time.Now().UTC(),
 		Type:    EventTypeTransactionIngested,
 		Payload: TransactionIngestedPayload{
 			TransactionID: tx.ID.String(),
@@ -74,7 +74,7 @@ func NewBackfillEvent(backfillID string) Event {
 	return Event{
 		App:     AppName,
 		Version: EventVersion,
-		Date:    time.Now(),
+		Date:    time.Now().UTC(),
 		Type:    EventTypeBackfill,
 		Payload: BackfillPayload{
 			BackfillID: backfillID,

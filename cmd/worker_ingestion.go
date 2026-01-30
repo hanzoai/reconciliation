@@ -15,7 +15,6 @@ import (
 	"github.com/formancehq/go-libs/v3/service"
 	"github.com/formancehq/reconciliation/internal/elasticsearch"
 	"github.com/formancehq/reconciliation/internal/ingestion"
-	"github.com/formancehq/reconciliation/internal/matching"
 	"github.com/formancehq/reconciliation/internal/reporting"
 	"github.com/go-chi/chi/v5"
 	"github.com/spf13/cobra"
@@ -35,7 +34,6 @@ func newWorkerIngestionCommand() *cobra.Command {
 	cmd.Flags().String(stackURLFlag, "", "Stack url")
 	cmd.Flags().String(stackClientIDFlag, "", "Stack client ID")
 	cmd.Flags().String(stackClientSecretFlag, "", "Stack client secret")
-	cmd.Flags().Int(matchingWorkersFlag, matching.DefaultMatchingWorkers, "Number of concurrent matching workers")
 	cmd.Flags().String(reportScheduleFlag, reporting.DefaultReportSchedule, "Cron schedule for daily report generation (e.g., '0 6 * * *' for 6:00 UTC)")
 
 	otlpmetrics.AddFlags(cmd.Flags())

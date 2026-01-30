@@ -36,9 +36,14 @@ func matchToResponse(m models.Match) matchResponse {
 		paymentTxIDs[i] = id.String()
 	}
 
+	policyIDStr := ""
+	if m.PolicyID != nil {
+		policyIDStr = m.PolicyID.String()
+	}
+
 	return matchResponse{
 		ID:                     m.ID.String(),
-		PolicyID:               m.PolicyID.String(),
+		PolicyID:               policyIDStr,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  m.Score,

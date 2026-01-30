@@ -65,7 +65,7 @@ func TestForceMatch(t *testing.T) {
 			expectedStatusCode: http.StatusCreated,
 			serviceResponse: &models.Match{
 				ID:                     matchID,
-				PolicyID:               policyID,
+				PolicyID:               &policyID,
 				LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 				PaymentsTransactionIDs: []uuid.UUID{paymentTxID},
 				Score:                  1.0,
@@ -87,7 +87,7 @@ func TestForceMatch(t *testing.T) {
 			expectedStatusCode: http.StatusCreated,
 			serviceResponse: &models.Match{
 				ID:                     matchID,
-				PolicyID:               policyID,
+				PolicyID:               &policyID,
 				LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 				PaymentsTransactionIDs: []uuid.UUID{paymentTxID},
 				Score:                  1.0,
@@ -109,7 +109,7 @@ func TestForceMatch(t *testing.T) {
 			expectedStatusCode: http.StatusCreated,
 			serviceResponse: &models.Match{
 				ID:                     matchID,
-				PolicyID:               policyID,
+				PolicyID:               &policyID,
 				LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 				PaymentsTransactionIDs: []uuid.UUID{paymentTxID},
 				Score:                  1.0,
@@ -131,7 +131,7 @@ func TestForceMatch(t *testing.T) {
 			expectedStatusCode: http.StatusCreated,
 			serviceResponse: &models.Match{
 				ID:                     matchID,
-				PolicyID:               policyID,
+				PolicyID:               &policyID,
 				LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 				PaymentsTransactionIDs: []uuid.UUID{paymentTxID},
 				Score:                  1.0,
@@ -196,7 +196,7 @@ func TestForceMatch(t *testing.T) {
 			expectedStatusCode: http.StatusCreated,
 			serviceResponse: &models.Match{
 				ID:                     matchID,
-				PolicyID:               policyID,
+				PolicyID:               &policyID,
 				LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 				PaymentsTransactionIDs: []uuid.UUID{paymentTxID},
 				Score:                  1.0,
@@ -264,6 +264,7 @@ func TestForceMatch(t *testing.T) {
 
 				// Verify match response fields
 				require.Equal(t, testCase.serviceResponse.ID.String(), resp.Data.ID)
+				require.NotNil(t, testCase.serviceResponse.PolicyID)
 				require.Equal(t, testCase.serviceResponse.PolicyID.String(), resp.Data.PolicyID)
 				require.Equal(t, string(models.DecisionManualMatch), resp.Data.Decision)
 				require.Equal(t, 1.0, resp.Data.Score)
@@ -305,7 +306,7 @@ func TestForceMatchRelatedAnomaliesClosed(t *testing.T) {
 
 	expectedMatch := &models.Match{
 		ID:                     matchID,
-		PolicyID:               policyID,
+		PolicyID:               &policyID,
 		LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 		PaymentsTransactionIDs: []uuid.UUID{paymentTxID},
 		Score:                  1.0,

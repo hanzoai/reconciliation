@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/formancehq/reconciliation/internal/storage"
 	"github.com/google/uuid"
@@ -381,6 +382,23 @@ func TestUnifiedEventHandler_Handle_ErrorCases(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("batch mode acks invalid JSON payload", func(t *testing.T) {
+		handler := &UnifiedEventHandler{
+			batchBuffer: &BatchBuffer{},
+		}
+
+		msg := message.NewMessage("msg-invalid-json", []byte("x"))
+		event := &GenericEvent{
+			ID:      "event-invalid-json-batch",
+			Payload: []byte("this is not valid json"),
+			Message: msg,
+		}
+
+		err := handler.Handle(context.Background(), event)
+		assert.NoError(t, err)
+		assert.True(t, isAcked(msg))
+	})
+
 	t.Run("non-GenericEvent type skips without error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -390,6 +408,28 @@ func TestUnifiedEventHandler_Handle_ErrorCases(t *testing.T) {
 
 		err := handler.Handle(context.Background(), "not a generic event")
 		assert.NoError(t, err)
+	})
+
+	t.Run("batch mode acks unknown event types", func(t *testing.T) {
+		handler := &UnifiedEventHandler{
+			batchBuffer: &BatchBuffer{},
+		}
+
+		payload, err := json.Marshal(map[string]interface{}{
+			"type": "SOME_UNKNOWN_TYPE",
+		})
+		require.NoError(t, err)
+
+		msg := message.NewMessage("msg-unknown-type", payload)
+		event := &GenericEvent{
+			ID:      "event-unknown-type-batch",
+			Payload: payload,
+			Message: msg,
+		}
+
+		err = handler.Handle(context.Background(), event)
+		assert.NoError(t, err)
+		assert.True(t, isAcked(msg))
 	})
 
 	t.Run("store error on check returns retryable error", func(t *testing.T) {
@@ -468,6 +508,7 @@ func TestUnifiedEventHandler_Handle_ErrorCases(t *testing.T) {
 		assert.True(t, errors.Is(err, ErrRetryable))
 	})
 }
+
 
 func TestUnifiedIngestionService(t *testing.T) {
 	t.Run("service delegates to consumer", func(t *testing.T) {

@@ -23,7 +23,7 @@ type Reconciliation struct {
 	bun.BaseModel `bun:"reconciliations.reconciliation" json:"-"`
 
 	ID                   uuid.UUID            `bun:",pk,nullzero" json:"id"`
-	PolicyID             uuid.UUID            `bun:",nullzero" json:"policyID"`
+	PolicyID             *uuid.UUID           `bun:",nullzero" json:"policyID"`
 	CreatedAt            time.Time            `bun:",nullzero" json:"createdAt"`
 	ReconciledAtLedger   time.Time            `bun:",nullzero" json:"reconciledAtLedger"`
 	ReconciledAtPayments time.Time            `bun:",nullzero" json:"reconciledAtPayments"`

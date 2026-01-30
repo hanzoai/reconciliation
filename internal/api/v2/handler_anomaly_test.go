@@ -108,8 +108,8 @@ func TestListAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -118,8 +118,8 @@ func TestListAnomalies(t *testing.T) {
 					},
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000011"),
-						PolicyID:      uuid.MustParse("00000000-0000-0000-0000-000000000002"),
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000021"),
+						PolicyID:      ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000002")),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000021")),
 						Type:          models.AnomalyTypeAmountMismatch,
 						Severity:      models.SeverityHigh,
 						State:         models.AnomalyStateOpen,
@@ -284,8 +284,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -308,8 +308,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -330,8 +330,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -352,8 +352,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -374,8 +374,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -398,8 +398,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeMissingOnPayments,
 						Severity:      models.SeverityCritical,
 						State:         models.AnomalyStateOpen,
@@ -474,8 +474,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 				Data: []models.Anomaly{
 					{
 						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-						PolicyID:      policyUUID,
-						TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+						PolicyID:      ptrUUID(policyUUID),
+						TransactionID: ptrUUID(uuid.MustParse("00000000-0000-0000-0000-000000000020")),
 						Type:          models.AnomalyTypeAmountMismatch,
 						Severity:      models.SeverityHigh,
 						State:         models.AnomalyStateResolved,
@@ -550,7 +550,9 @@ func TestListPolicyAnomalies(t *testing.T) {
 						actualResponse := resp.Cursor.Data[0]
 
 						require.Equal(t, expectedAnomaly.ID.String(), actualResponse.ID)
+						require.NotNil(t, expectedAnomaly.PolicyID)
 						require.Equal(t, expectedAnomaly.PolicyID.String(), actualResponse.PolicyID)
+						require.NotNil(t, expectedAnomaly.TransactionID)
 						require.Equal(t, expectedAnomaly.TransactionID.String(), actualResponse.TransactionID)
 						require.Equal(t, string(expectedAnomaly.Type), actualResponse.Type)
 						require.Equal(t, string(expectedAnomaly.Severity), actualResponse.Severity)
@@ -592,8 +594,8 @@ func TestGetAnomalyByID(t *testing.T) {
 			serviceResponse: &service.AnomalyDetailResult{
 				Anomaly: models.Anomaly{
 					ID:            uuid.MustParse(anomalyID),
-					PolicyID:      uuid.MustParse(policyID),
-					TransactionID: uuid.MustParse(transactionID),
+					PolicyID:      ptrUUID(uuid.MustParse(policyID)),
+					TransactionID: ptrUUID(uuid.MustParse(transactionID)),
 					Type:          models.AnomalyTypeMissingOnPayments,
 					Severity:      models.SeverityCritical,
 					State:         models.AnomalyStateOpen,
@@ -621,8 +623,8 @@ func TestGetAnomalyByID(t *testing.T) {
 			serviceResponse: &service.AnomalyDetailResult{
 				Anomaly: models.Anomaly{
 					ID:            uuid.MustParse(anomalyID),
-					PolicyID:      uuid.MustParse(policyID),
-					TransactionID: uuid.MustParse(transactionID),
+					PolicyID:      ptrUUID(uuid.MustParse(policyID)),
+					TransactionID: ptrUUID(uuid.MustParse(transactionID)),
 					Type:          models.AnomalyTypeMissingOnLedger,
 					Severity:      models.SeverityHigh,
 					State:         models.AnomalyStateOpen,
@@ -650,8 +652,8 @@ func TestGetAnomalyByID(t *testing.T) {
 			serviceResponse: &service.AnomalyDetailResult{
 				Anomaly: models.Anomaly{
 					ID:            uuid.MustParse(anomalyID),
-					PolicyID:      uuid.MustParse(policyID),
-					TransactionID: uuid.MustParse(transactionID),
+					PolicyID:      ptrUUID(uuid.MustParse(policyID)),
+					TransactionID: ptrUUID(uuid.MustParse(transactionID)),
 					Type:          models.AnomalyTypeAmountMismatch,
 					Severity:      models.SeverityMedium,
 					State:         models.AnomalyStateOpen,
@@ -752,7 +754,9 @@ func TestGetAnomalyByID(t *testing.T) {
 				// Verify anomaly fields
 				expectedAnomaly := testCase.serviceResponse.Anomaly
 				require.Equal(t, expectedAnomaly.ID.String(), resp.Data.ID)
+				require.NotNil(t, expectedAnomaly.PolicyID)
 				require.Equal(t, expectedAnomaly.PolicyID.String(), resp.Data.PolicyID)
+				require.NotNil(t, expectedAnomaly.TransactionID)
 				require.Equal(t, expectedAnomaly.TransactionID.String(), resp.Data.TransactionID)
 				require.Equal(t, string(expectedAnomaly.Type), resp.Data.Type)
 				require.Equal(t, string(expectedAnomaly.Severity), resp.Data.Severity)
@@ -763,6 +767,7 @@ func TestGetAnomalyByID(t *testing.T) {
 				// Verify source transaction is included
 				expectedTx := testCase.serviceResponse.SourceTransaction
 				require.Equal(t, expectedTx.ID.String(), resp.Data.SourceTransaction.ID)
+				require.NotNil(t, expectedTx.PolicyID)
 				require.Equal(t, expectedTx.PolicyID.String(), resp.Data.SourceTransaction.PolicyID)
 				require.Equal(t, string(expectedTx.Side), resp.Data.SourceTransaction.Side)
 				require.Equal(t, expectedTx.Provider, resp.Data.SourceTransaction.Provider)

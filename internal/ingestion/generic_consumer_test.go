@@ -446,6 +446,52 @@ func TestGenericConsumer_Integration(t *testing.T) {
 
 		consumer.Stop()
 	})
+
+	t.Run("fatal error stops Start and returns error", func(t *testing.T) {
+		pubSub := gochannel.NewGoChannel(
+			gochannel.Config{
+				BlockPublishUntilSubscriberAck: true,
+			},
+			watermill.NopLogger{},
+		)
+		defer func() { _ = pubSub.Close() }()
+
+		topic := "test-fatal-error-start"
+		handler := newGenericTestHandler()
+		handler.handleFunc = func(ctx context.Context, event Event) error {
+			return NewFatalError(errors.New("fatal processing error"))
+		}
+
+		config := GenericConsumerConfig{
+			Topic: topic,
+		}
+
+		consumer, err := NewGenericConsumer(config, pubSub, handler)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- consumer.Start(ctx)
+		}()
+
+		require.Eventually(t, func() bool {
+			return consumer.Health() == nil
+		}, 5*time.Second, 10*time.Millisecond)
+
+		err = pubSub.Publish(topic, message.NewMessage(watermill.NewUUID(), []byte("fatal-message")))
+		require.NoError(t, err)
+
+		select {
+		case startErr := <-errCh:
+			require.Error(t, startErr)
+			assert.True(t, errors.Is(startErr, ErrFatal))
+		case <-time.After(5 * time.Second):
+			t.Fatal("Start did not return after fatal error")
+		}
+	})
 }
 
 func TestGenericEvent(t *testing.T) {

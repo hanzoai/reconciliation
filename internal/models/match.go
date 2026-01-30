@@ -41,7 +41,7 @@ type Match struct {
 	bun.BaseModel `bun:"reconciliations.match" json:"-"`
 
 	ID                     uuid.UUID   `bun:"id,pk,nullzero" json:"id"`
-	PolicyID               uuid.UUID   `bun:"policy_id,nullzero" json:"policyID"`
+	PolicyID               *uuid.UUID  `bun:"policy_id,nullzero" json:"policyID"`
 	LedgerTransactionIDs   []uuid.UUID `bun:"ledger_tx_ids,type:uuid[],array" json:"ledgerTransactionIDs"`
 	PaymentsTransactionIDs []uuid.UUID `bun:"payment_tx_ids,type:uuid[],array" json:"paymentsTransactionIDs"`
 	Score                  float64     `bun:"score,notnull" json:"score"`

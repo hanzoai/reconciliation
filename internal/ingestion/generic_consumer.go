@@ -47,6 +47,7 @@ type GenericConsumer struct {
 	cancel             context.CancelFunc
 	wg                 sync.WaitGroup
 	wgInitialized      atomic.Bool
+	fatalErrCh         chan error
 
 	// Metrics
 	eventsReceived  metric.Int64Counter
@@ -73,6 +74,7 @@ func NewGenericConsumer(config GenericConsumerConfig, subscriber message.Subscri
 		config:     config,
 		subscriber: subscriber,
 		handler:    handler,
+		fatalErrCh: make(chan error, 1),
 	}
 
 	if err := consumer.initMetrics(); err != nil {
@@ -122,9 +124,15 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	c.mu.Lock()
 	c.cancel = cancel
+	c.lastErr = nil
 	c.mu.Unlock()
 	c.running.Store(true)
 	c.healthy.Store(true)
+	// Clear any stale fatal error from previous runs.
+	select {
+	case <-c.fatalErrCh:
+	default:
+	}
 
 	logger.WithFields(map[string]interface{}{
 		"topic": c.config.Topic,
@@ -156,14 +164,36 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		c.consumeMessages(ctx, messages)
 	}()
 
-	// Block until context is done
-	<-ctx.Done()
+	// Block until context is done or a fatal error occurs
+	select {
+	case <-ctx.Done():
+	case err := <-c.fatalErrCh:
+		if err != nil {
+			c.running.Store(false)
+			c.healthy.Store(false)
+			c.mu.Lock()
+			c.lastErr = err
+			c.mu.Unlock()
+			if cancel != nil {
+				cancel()
+			}
+			return err
+		}
+	}
 
 	logger.WithFields(map[string]interface{}{
 		"topic": c.config.Topic,
 	}).Info("Consumer stopped")
 
 	c.running.Store(false)
+	if !c.healthy.Load() {
+		c.mu.RLock()
+		lastErr := c.lastErr
+		c.mu.RUnlock()
+		if lastErr != nil {
+			return lastErr
+		}
+	}
 	return nil
 }
 
@@ -196,6 +226,37 @@ func (c *GenericConsumer) consumeMessages(ctx context.Context, messages <-chan *
 			// Handle the event
 			err := c.handler.Handle(ctx, event)
 
+			// Fatal errors stop the consumer in all modes
+			if err != nil && errors.Is(err, ErrFatal) {
+				c.eventsErrors.Add(ctx, 1)
+				logger.WithFields(map[string]interface{}{
+					"topic":      c.config.Topic,
+					"message_id": msg.UUID,
+					"error":      err.Error(),
+				}).Error("Fatal error processing message")
+
+				c.mu.Lock()
+				c.lastErr = err
+				c.healthy.Store(false)
+				cancel := c.cancel
+				c.mu.Unlock()
+
+				select {
+				case c.fatalErrCh <- err:
+				default:
+				}
+
+				if cancel != nil {
+					cancel()
+				}
+
+				// Nack only in non-batch mode (batch handlers manage Ack/Nack)
+				if !c.config.BatchMode {
+					msg.Nack()
+				}
+				return
+			}
+
 			// In batch mode, the handler (BatchBuffer) manages Ack/Nack
 			if c.config.BatchMode {
 				if err != nil {
@@ -215,23 +276,6 @@ func (c *GenericConsumer) consumeMessages(ctx context.Context, messages <-chan *
 			// Non-batch mode: consumer manages Ack/Nack
 			if err != nil {
 				c.eventsErrors.Add(ctx, 1)
-
-				// Check if error is fatal
-				if errors.Is(err, ErrFatal) {
-					logger.WithFields(map[string]interface{}{
-						"topic":      c.config.Topic,
-						"message_id": msg.UUID,
-						"error":      err.Error(),
-					}).Error("Fatal error processing message")
-
-					c.mu.Lock()
-					c.lastErr = err
-					c.healthy.Store(false)
-					c.mu.Unlock()
-					// Nack the message - it will not be redelivered for fatal errors
-					msg.Nack()
-					return
-				}
 
 				// For retryable errors, Nack the message so it can be reprocessed
 				if errors.Is(err, ErrRetryable) {
@@ -287,6 +331,12 @@ func (c *GenericConsumer) Stop() {
 // the health issue.
 func (c *GenericConsumer) Health() error {
 	if !c.running.Load() {
+		c.mu.RLock()
+		lastErr := c.lastErr
+		c.mu.RUnlock()
+		if lastErr != nil {
+			return lastErr
+		}
 		return errors.New("consumer is not running")
 	}
 	if !c.healthy.Load() {

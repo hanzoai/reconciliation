@@ -14,6 +14,7 @@ const (
 	AnomalyTypeMissingOnLedger   AnomalyType = "MISSING_ON_LEDGER"
 	AnomalyTypeDuplicateLedger   AnomalyType = "DUPLICATE_LEDGER"
 	AnomalyTypeAmountMismatch    AnomalyType = "AMOUNT_MISMATCH"
+	AnomalyTypeCurrencyMismatch  AnomalyType = "CURRENCY_MISMATCH"
 )
 
 func (a AnomalyType) String() string {
@@ -22,7 +23,7 @@ func (a AnomalyType) String() string {
 
 func (a AnomalyType) IsValid() bool {
 	switch a {
-	case AnomalyTypeMissingOnPayments, AnomalyTypeMissingOnLedger, AnomalyTypeDuplicateLedger, AnomalyTypeAmountMismatch:
+	case AnomalyTypeMissingOnPayments, AnomalyTypeMissingOnLedger, AnomalyTypeDuplicateLedger, AnomalyTypeAmountMismatch, AnomalyTypeCurrencyMismatch:
 		return true
 	default:
 		return false
@@ -75,8 +76,8 @@ type Anomaly struct {
 	bun.BaseModel `bun:"reconciliations.anomaly" json:"-"`
 
 	ID            uuid.UUID    `bun:",pk,nullzero" json:"id"`
-	PolicyID      uuid.UUID    `bun:",nullzero" json:"policyID"`
-	TransactionID uuid.UUID    `bun:",nullzero" json:"transactionID"`
+	PolicyID      *uuid.UUID   `bun:",nullzero" json:"policyID"`
+	TransactionID *uuid.UUID   `bun:",nullzero" json:"transactionID"`
 	Type          AnomalyType  `bun:",notnull" json:"type"`
 	Severity      Severity     `bun:",notnull" json:"severity"`
 	State         AnomalyState `bun:",notnull,default:'open'" json:"state"`

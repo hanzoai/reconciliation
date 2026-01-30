@@ -64,13 +64,13 @@ func (g *Generator) Generate(ctx context.Context, policyID uuid.UUID, from, to t
 func (g *Generator) countTransactions(ctx context.Context, policyID uuid.UUID, from, to time.Time) (int64, error) {
 	// Since transactions are now stored in OpenSearch (not PostgreSQL),
 	// we derive the total transaction count from the match table.
-	// This counts all unique transaction IDs across all matches for the policy in the period.
+	// This counts all transaction IDs across all matches for the policy in the period.
 	var result struct {
 		Count int64 `bun:"count"`
 	}
 
 	err := g.db.NewRaw(`
-		SELECT COALESCE(SUM(array_length(ledger_tx_ids, 1) + array_length(payment_tx_ids, 1)), 0) as count
+		SELECT COALESCE(SUM(COALESCE(array_length(ledger_tx_ids, 1), 0) + COALESCE(array_length(payment_tx_ids, 1), 0)), 0) as count
 		FROM reconciliations.match
 		WHERE policy_id = ?
 		AND created_at >= ?
@@ -84,15 +84,15 @@ func (g *Generator) countTransactions(ctx context.Context, policyID uuid.UUID, f
 }
 
 func (g *Generator) countMatchedTransactions(ctx context.Context, policyID uuid.UUID, from, to time.Time) (int64, error) {
-	// Count unique transactions that are part of matches created within the period
-	// A match contains ledger_tx_ids and payment_tx_ids arrays
-	// We count the total number of transaction IDs across all matches
+	// Count transactions that are part of matches created within the period
+	// A match contains ledger_tx_ids and payment_tx_ids arrays.
+	// We count the total number of transaction IDs across all matches.
 	var result struct {
 		Count int64 `bun:"count"`
 	}
 
 	err := g.db.NewRaw(`
-		SELECT COALESCE(SUM(array_length(ledger_tx_ids, 1) + array_length(payment_tx_ids, 1)), 0) as count
+		SELECT COALESCE(SUM(COALESCE(array_length(ledger_tx_ids, 1), 0) + COALESCE(array_length(payment_tx_ids, 1), 0)), 0) as count
 		FROM reconciliations.match
 		WHERE policy_id = ?
 		AND decision IN (?, ?)

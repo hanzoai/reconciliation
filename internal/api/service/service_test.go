@@ -164,9 +164,10 @@ func (s *mockStore) ListMatchesByPolicy(ctx context.Context, q storage.GetMatche
 }
 
 func (s *mockStore) GetMatchByID(ctx context.Context, id uuid.UUID) (*models.Match, error) {
+	policyID := uuid.New()
 	return &models.Match{
 		ID:        id,
-		PolicyID:  uuid.New(),
+		PolicyID:  &policyID,
 		Score:     0.95,
 		Decision:  models.DecisionMatched,
 		CreatedAt: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -182,10 +183,12 @@ func (s *mockStore) ListAnomaliesByPolicy(ctx context.Context, q storage.GetAnom
 }
 
 func (s *mockStore) GetAnomalyByID(ctx context.Context, id uuid.UUID) (*models.Anomaly, error) {
+	policyID := uuid.New()
+	transactionID := uuid.New()
 	return &models.Anomaly{
 		ID:            id,
-		PolicyID:      uuid.New(),
-		TransactionID: uuid.New(),
+		PolicyID:      &policyID,
+		TransactionID: &transactionID,
 		Type:          models.AnomalyTypeMissingOnPayments,
 		Severity:      models.SeverityCritical,
 		State:         models.AnomalyStateOpen,
@@ -231,7 +234,7 @@ func (s *mockStore) ResolveAnomaly(ctx context.Context, id uuid.UUID, resolvedBy
 func (s *mockStore) GetLatestReportByPolicyID(ctx context.Context, policyID uuid.UUID) (*models.Report, error) {
 	return &models.Report{
 		ID:                uuid.New(),
-		PolicyID:          policyID,
+		PolicyID:          &policyID,
 		PeriodStart:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 		PeriodEnd:         time.Date(2021, 1, 31, 23, 59, 59, 0, time.UTC),
 		TotalTransactions: 100,

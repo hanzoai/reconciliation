@@ -74,7 +74,7 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 
 	res := &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             policy.ID,
+		PolicyID:             &policy.ID,
 		CreatedAt:            time.Now().UTC(),
 		ReconciledAtLedger:   req.ReconciledAtLedger,
 		ReconciledAtPayments: req.ReconciledAtPayments,

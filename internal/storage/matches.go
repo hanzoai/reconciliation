@@ -18,13 +18,14 @@ type MatchRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Match, error)
 	ListByPolicy(ctx context.Context, q GetMatchesQuery) (*bunpaginate.Cursor[models.Match], error)
 	UpdateDecision(ctx context.Context, id uuid.UUID, decision models.Decision) error
+	FindByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error)
 }
 
 type MatchesFilters struct {
-	PolicyID     *uuid.UUID
-	Decision     *models.Decision
-	ScoreMin     *float64
-	CreatedAfter *time.Time
+	PolicyID      *uuid.UUID
+	Decision      *models.Decision
+	ScoreMin      *float64
+	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
 }
 
@@ -144,6 +145,10 @@ func (r *matchRepository) ListByPolicy(ctx context.Context, q GetMatchesQuery) (
 
 func (r *matchRepository) UpdateDecision(ctx context.Context, id uuid.UUID, decision models.Decision) error {
 	return r.UpdateMatchDecision(ctx, id, decision)
+}
+
+func (r *matchRepository) FindByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error) {
+	return r.FindMatchByTransactionIDs(ctx, policyID, txIDs)
 }
 
 // DeleteMatchesInPeriod deletes all matches for a policy within a time period.

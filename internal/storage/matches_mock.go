@@ -87,6 +87,21 @@ func (mr *MockMatchRepositoryMockRecorder) ListByPolicy(ctx, q any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByPolicy", reflect.TypeOf((*MockMatchRepository)(nil).ListByPolicy), ctx, q)
 }
 
+// FindByTransactionIDs mocks base method.
+func (m *MockMatchRepository) FindByTransactionIDs(ctx context.Context, policyID uuid.UUID, txIDs []uuid.UUID) (*models.Match, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByTransactionIDs", ctx, policyID, txIDs)
+	ret0, _ := ret[0].(*models.Match)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByTransactionIDs indicates an expected call of FindByTransactionIDs.
+func (mr *MockMatchRepositoryMockRecorder) FindByTransactionIDs(ctx, policyID, txIDs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByTransactionIDs", reflect.TypeOf((*MockMatchRepository)(nil).FindByTransactionIDs), ctx, policyID, txIDs)
+}
+
 // UpdateDecision mocks base method.
 func (m *MockMatchRepository) UpdateDecision(ctx context.Context, id uuid.UUID, decision models.Decision) error {
 	m.ctrl.T.Helper()

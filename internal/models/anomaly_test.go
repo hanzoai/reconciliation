@@ -15,6 +15,7 @@ func TestAnomalyType_IsValid(t *testing.T) {
 		{AnomalyTypeMissingOnLedger, true},
 		{AnomalyTypeDuplicateLedger, true},
 		{AnomalyTypeAmountMismatch, true},
+		{AnomalyTypeCurrencyMismatch, true},
 		{"INVALID", false},
 		{"", false},
 	}
@@ -31,6 +32,7 @@ func TestAnomalyType_String(t *testing.T) {
 	assert.Equal(t, "MISSING_ON_LEDGER", AnomalyTypeMissingOnLedger.String())
 	assert.Equal(t, "DUPLICATE_LEDGER", AnomalyTypeDuplicateLedger.String())
 	assert.Equal(t, "AMOUNT_MISMATCH", AnomalyTypeAmountMismatch.String())
+	assert.Equal(t, "CURRENCY_MISMATCH", AnomalyTypeCurrencyMismatch.String())
 }
 
 func TestSeverity_IsValid(t *testing.T) {

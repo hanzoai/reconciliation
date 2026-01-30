@@ -11,7 +11,7 @@ type Report struct {
 	bun.BaseModel `bun:"reconciliations.report" json:"-"`
 
 	ID                uuid.UUID        `bun:",pk,nullzero" json:"id"`
-	PolicyID          uuid.UUID        `bun:",nullzero" json:"policyID"`
+	PolicyID          *uuid.UUID       `bun:",nullzero" json:"policyID"`
 	PeriodStart       time.Time        `bun:",notnull" json:"periodStart"`
 	PeriodEnd         time.Time        `bun:",notnull" json:"periodEnd"`
 	TotalTransactions int64            `bun:",notnull" json:"totalTransactions"`

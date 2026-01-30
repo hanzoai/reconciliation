@@ -82,6 +82,13 @@ func TestTransaction_Validate_MissingOccurredAt(t *testing.T) {
 	assert.EqualError(t, err, "occurredAt is required")
 }
 
+func TestTransaction_Validate_MissingIngestedAt(t *testing.T) {
+	tx := validTransaction()
+	tx.IngestedAt = time.Time{}
+	err := tx.Validate()
+	assert.EqualError(t, err, "ingestedAt is required")
+}
+
 func TestTransactionSide_IsValid(t *testing.T) {
 	tests := []struct {
 		side     TransactionSide

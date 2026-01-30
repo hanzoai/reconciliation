@@ -30,7 +30,7 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		match := &models.Match{
 			ID:                     matchID,
-			PolicyID:               policyID,
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 			PaymentsTransactionIDs: []uuid.UUID{paymentsTxID},
 			Score:                  1.0,
@@ -40,8 +40,8 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		openAnomaly := models.Anomaly{
 			ID:            anomalyID,
-			PolicyID:      policyID,
-			TransactionID: ledgerTxID,
+			PolicyID:               &policyID,
+			TransactionID: &ledgerTxID,
 			Type:          models.AnomalyTypeMissingOnPayments,
 			Severity:      models.SeverityHigh,
 			State:         models.AnomalyStateOpen,
@@ -79,7 +79,7 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		match := &models.Match{
 			ID:                     matchID,
-			PolicyID:               policyID,
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 			PaymentsTransactionIDs: []uuid.UUID{paymentsTxID},
 			Score:                  1.0,
@@ -115,7 +115,7 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		match := &models.Match{
 			ID:                     matchID,
-			PolicyID:               policyID,
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 			PaymentsTransactionIDs: []uuid.UUID{paymentsTxID},
 			Score:                  1.0,
@@ -127,16 +127,16 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 		anomalies := []models.Anomaly{
 			{
 				ID:            anomalyID1,
-				PolicyID:      policyID,
-				TransactionID: ledgerTxID,
+				PolicyID:               &policyID,
+				TransactionID: &ledgerTxID,
 				Type:          models.AnomalyTypeMissingOnPayments,
 				Severity:      models.SeverityHigh,
 				State:         models.AnomalyStateOpen,
 			},
 			{
 				ID:            anomalyID2,
-				PolicyID:      policyID,
-				TransactionID: paymentsTxID,
+				PolicyID:               &policyID,
+				TransactionID: &paymentsTxID,
 				Type:          models.AnomalyTypeMissingOnLedger,
 				Severity:      models.SeverityCritical,
 				State:         models.AnomalyStateOpen,
@@ -175,7 +175,7 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		match := &models.Match{
 			ID:                     matchID,
-			PolicyID:               policyID,
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{ledgerTxID},
 			PaymentsTransactionIDs: []uuid.UUID{},
 			Score:                  1.0,
@@ -184,7 +184,7 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		openAnomaly := models.Anomaly{
 			ID:            anomalyID,
-			TransactionID: ledgerTxID,
+			TransactionID: &ledgerTxID,
 			State:         models.AnomalyStateOpen,
 		}
 
@@ -227,9 +227,10 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		mockAnomalyRepo := storage.NewMockAnomalyRepository(ctrl)
 
+		policyID := uuid.New()
 		match := &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               uuid.New(),
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{},
 			PaymentsTransactionIDs: []uuid.UUID{},
 			Score:                  1.0,
@@ -249,9 +250,10 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 
 		mockAnomalyRepo := storage.NewMockAnomalyRepository(ctrl)
 
+		policyID := uuid.New()
 		match := &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               uuid.New(),
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{uuid.New()},
 			PaymentsTransactionIDs: []uuid.UUID{},
 		}
@@ -274,9 +276,10 @@ func TestDefaultResolver_ResolveForMatch(t *testing.T) {
 		mockAnomalyRepo := storage.NewMockAnomalyRepository(ctrl)
 
 		anomalyID := uuid.New()
+		policyID := uuid.New()
 		match := &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               uuid.New(),
+			PolicyID:               &policyID,
 			LedgerTransactionIDs:   []uuid.UUID{uuid.New()},
 			PaymentsTransactionIDs: []uuid.UUID{},
 		}

@@ -48,7 +48,7 @@ func TestDetector_Detect_MatchedDecision_NoAnomaly(t *testing.T) {
 		Decision: matching.DecisionMatched,
 		Match: &models.Match{
 			ID:       uuid.New(),
-			PolicyID: policyID,
+			PolicyID:   ptrUUID(policyID),
 			Score:    0.95,
 			Decision: models.DecisionMatched,
 		},
@@ -170,8 +170,10 @@ func TestDetector_Detect_UnmatchedAfterWindow_AnomalyCreated_Ledger(t *testing.T
 	assert.False(t, result.Pending, "result should not be pending after time window")
 
 	// Verify anomaly details
-	assert.Equal(t, policyID, result.Anomaly.PolicyID)
-	assert.Equal(t, transactionID, result.Anomaly.TransactionID)
+	require.NotNil(t, result.Anomaly.PolicyID)
+	assert.Equal(t, policyID, *result.Anomaly.PolicyID)
+	require.NotNil(t, result.Anomaly.TransactionID)
+	assert.Equal(t, transactionID, *result.Anomaly.TransactionID)
 	assert.Equal(t, models.AnomalyTypeMissingOnPayments, result.Anomaly.Type)
 	assert.Equal(t, models.SeverityHigh, result.Anomaly.Severity, "MISSING_ON_PAYMENTS should have HIGH severity by default")
 	assert.Equal(t, models.AnomalyStateOpen, result.Anomaly.State)
@@ -217,8 +219,10 @@ func TestDetector_Detect_UnmatchedAfterWindow_AnomalyCreated_Payments(t *testing
 	assert.False(t, result.Pending, "result should not be pending after time window")
 
 	// Verify anomaly details
-	assert.Equal(t, policyID, result.Anomaly.PolicyID)
-	assert.Equal(t, transactionID, result.Anomaly.TransactionID)
+	require.NotNil(t, result.Anomaly.PolicyID)
+	assert.Equal(t, policyID, *result.Anomaly.PolicyID)
+	require.NotNil(t, result.Anomaly.TransactionID)
+	assert.Equal(t, transactionID, *result.Anomaly.TransactionID)
 	assert.Equal(t, models.AnomalyTypeMissingOnLedger, result.Anomaly.Type, "payment transaction should create MISSING_ON_LEDGER, not MISSING_ON_PAYMENTS")
 	assert.Equal(t, models.SeverityCritical, result.Anomaly.Severity, "MISSING_ON_LEDGER should have CRITICAL severity (risk of non-recording)")
 	assert.Equal(t, models.AnomalyStateOpen, result.Anomaly.State)
@@ -523,6 +527,138 @@ func TestDetector_UnmatchedPaymentTransaction_CreatesMissingOnLedger(t *testing.
 		"reason should contain provider name")
 }
 
+// US-052: Test that currency mismatch creates CURRENCY_MISMATCH anomaly
+func TestDetector_MatchWithCurrencyMismatch_CreatesCurrencyMismatch(t *testing.T) {
+	// Arrange
+	now := time.Now()
+	mockTime := &MockTimeProvider{currentTime: now}
+	detector := NewDefaultDetectorWithTimeProvider(mockTime)
+
+	policyID := uuid.New()
+	transactionID := uuid.New()
+	matchedTxID := uuid.New()
+
+	transaction := &models.Transaction{
+		ID:         transactionID,
+		PolicyID:   ptrUUID(policyID),
+		Side:       models.TransactionSideLedger,
+		Provider:   "test-provider",
+		ExternalID: "ext-052-001",
+		Amount:     10000,
+		Currency:   "USD",
+		OccurredAt: now.Add(-2 * time.Hour),
+		IngestedAt: now.Add(-1 * time.Hour),
+	}
+
+	matchedTx := &models.Transaction{
+		ID:         matchedTxID,
+		PolicyID:   ptrUUID(policyID),
+		Side:       models.TransactionSidePayments,
+		Provider:   "stripe",
+		ExternalID: "ext-052-002",
+		Amount:     10000,
+		Currency:   "EUR",
+		OccurredAt: now.Add(-2 * time.Hour),
+		IngestedAt: now.Add(-1 * time.Hour),
+	}
+
+	matchResult := &matching.MatchResult{
+		Decision: matching.DecisionMatched,
+		Match: &models.Match{
+			ID:                     uuid.New(),
+			PolicyID:   ptrUUID(policyID),
+			LedgerTransactionIDs:   []uuid.UUID{transactionID},
+			PaymentsTransactionIDs: []uuid.UUID{matchedTxID},
+			Score:                  0.95,
+			Decision:               models.DecisionMatched,
+		},
+		Candidates: []matching.Candidate{
+			{
+				Transaction: matchedTx,
+				Score:       0.95,
+				Reasons:     []string{"high score match"},
+			},
+		},
+	}
+
+	// Act
+	result, err := detector.Detect(context.Background(), transaction, matchResult, policyID)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, result.Anomaly)
+	assert.Equal(t, models.AnomalyTypeCurrencyMismatch, result.Anomaly.Type)
+	assert.Equal(t, models.SeverityHigh, result.Anomaly.Severity)
+	assert.Contains(t, result.Anomaly.Reason, "Ledger=USD")
+	assert.Contains(t, result.Anomaly.Reason, "Payments=EUR")
+}
+
+// US-052: Currency mismatch takes priority over amount mismatch
+func TestDetector_CurrencyMismatch_PriorityOverAmountMismatch(t *testing.T) {
+	// Arrange
+	now := time.Now()
+	mockTime := &MockTimeProvider{currentTime: now}
+	config := DetectorConfig{
+		AmountTolerancePercent: 1.0,
+	}
+	detector := NewDefaultDetectorWithConfig(mockTime, config)
+
+	policyID := uuid.New()
+	transactionID := uuid.New()
+	matchedTxID := uuid.New()
+
+	transaction := &models.Transaction{
+		ID:         transactionID,
+		PolicyID:   ptrUUID(policyID),
+		Side:       models.TransactionSidePayments,
+		Provider:   "stripe",
+		ExternalID: "ext-052-003",
+		Amount:     10500,
+		Currency:   "EUR",
+		OccurredAt: now.Add(-2 * time.Hour),
+		IngestedAt: now.Add(-1 * time.Hour),
+	}
+
+	matchedTx := &models.Transaction{
+		ID:         matchedTxID,
+		PolicyID:   ptrUUID(policyID),
+		Side:       models.TransactionSideLedger,
+		Provider:   "test-provider",
+		ExternalID: "ext-052-004",
+		Amount:     10000,
+		Currency:   "USD",
+		OccurredAt: now.Add(-2 * time.Hour),
+		IngestedAt: now.Add(-1 * time.Hour),
+	}
+
+	matchResult := &matching.MatchResult{
+		Decision: matching.DecisionMatched,
+		Match: &models.Match{
+			ID:                     uuid.New(),
+			PolicyID:   ptrUUID(policyID),
+			LedgerTransactionIDs:   []uuid.UUID{matchedTxID},
+			PaymentsTransactionIDs: []uuid.UUID{transactionID},
+			Score:                  0.92,
+			Decision:               models.DecisionMatched,
+		},
+		Candidates: []matching.Candidate{
+			{
+				Transaction: matchedTx,
+				Score:       0.92,
+				Reasons:     []string{"high score match"},
+			},
+		},
+	}
+
+	// Act
+	result, err := detector.Detect(context.Background(), transaction, matchResult, policyID)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, result.Anomaly)
+	assert.Equal(t, models.AnomalyTypeCurrencyMismatch, result.Anomaly.Type)
+}
+
 // US-051: Test that match with delta > tolerance creates AMOUNT_MISMATCH anomaly
 func TestDetector_MatchWithDeltaExceedsTolerance_CreatesAmountMismatch(t *testing.T) {
 	// Arrange
@@ -567,7 +703,7 @@ func TestDetector_MatchWithDeltaExceedsTolerance_CreatesAmountMismatch(t *testin
 		Decision: matching.DecisionMatched,
 		Match: &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               policyID,
+			PolicyID:   ptrUUID(policyID),
 			LedgerTransactionIDs:   []uuid.UUID{transactionID},
 			PaymentsTransactionIDs: []uuid.UUID{matchedTxID},
 			Score:                  0.92,
@@ -652,7 +788,7 @@ func TestDetector_MatchWithDeltaWithinTolerance_NoAnomaly(t *testing.T) {
 		Decision: matching.DecisionMatched,
 		Match: &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               policyID,
+			PolicyID:   ptrUUID(policyID),
 			LedgerTransactionIDs:   []uuid.UUID{transactionID},
 			PaymentsTransactionIDs: []uuid.UUID{matchedTxID},
 			Score:                  0.95,
@@ -720,7 +856,7 @@ func TestDetector_ExactAmountMatch_NoAnomaly(t *testing.T) {
 		Decision: matching.DecisionMatched,
 		Match: &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               policyID,
+			PolicyID:   ptrUUID(policyID),
 			LedgerTransactionIDs:   []uuid.UUID{transactionID},
 			PaymentsTransactionIDs: []uuid.UUID{matchedTxID},
 			Score:                  1.0,
@@ -788,7 +924,7 @@ func TestDetector_AmountMismatch_FromPaymentSide(t *testing.T) {
 		Decision: matching.DecisionMatched,
 		Match: &models.Match{
 			ID:                     uuid.New(),
-			PolicyID:               policyID,
+			PolicyID:   ptrUUID(policyID),
 			LedgerTransactionIDs:   []uuid.UUID{matchedTxID},
 			PaymentsTransactionIDs: []uuid.UUID{transactionID},
 			Score:                  0.92,
@@ -868,7 +1004,7 @@ func TestDetector_AmountMismatch_ExactlyAtTolerance_NoAnomaly(t *testing.T) {
 		Decision: matching.DecisionMatched,
 		Match: &models.Match{
 			ID:       uuid.New(),
-			PolicyID: policyID,
+			PolicyID:   ptrUUID(policyID),
 			Score:    0.95,
 			Decision: models.DecisionMatched,
 		},

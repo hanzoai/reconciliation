@@ -16,6 +16,9 @@ import (
 // TransactionIndexSuffix is the suffix for transaction index names.
 const TransactionIndexSuffix = "reconciliation"
 
+// providerQueryLimit is the maximum number of transactions returned by provider queries.
+const providerQueryLimit = 1000
+
 // TransactionIndexPattern returns the index pattern for a given stack.
 // Example: mystack-reconciliation-*
 func TransactionIndexPattern(stack string) string {
@@ -142,7 +145,7 @@ func (c *Client) CreateTransactionIndexTemplate(ctx context.Context, stack strin
 // IndexTransaction indexes a transaction document into a monthly index.
 // The index name follows the pattern: {stack}-reconciliation-{yyyy-mm}
 // where the month is derived from the transaction's OccurredAt field.
-// The document ID uses {side}_{external_id} to ensure idempotency (no duplicates).
+// The document ID uses the transaction ID to ensure idempotency (no duplicates).
 func (c *Client) IndexTransaction(ctx context.Context, stack string, tx *models.Transaction) error {
 	doc := TransactionDocumentFromModel(tx)
 	docBytes, err := json.Marshal(doc)
@@ -152,7 +155,7 @@ func (c *Client) IndexTransaction(ctx context.Context, stack string, tx *models.
 
 	// Use monthly index based on transaction's OccurredAt date
 	indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
-	docID := GenerateDocumentID(tx.Side, tx.ExternalID)
+	docID := GenerateDocumentID(tx.ID)
 
 	res, err := c.client.Index(ctx, opensearchapi.IndexReq{
 		Index:      indexName,
@@ -245,7 +248,7 @@ func (c *Client) BulkIndex(ctx context.Context, stack string, transactions []*mo
 	for _, tx := range transactions {
 		doc := TransactionDocumentFromModel(tx)
 		indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
-		docID := GenerateDocumentID(tx.Side, tx.ExternalID)
+		docID := GenerateDocumentID(tx.ID)
 
 		// Action line
 		action := map[string]interface{}{
@@ -299,9 +302,9 @@ func (c *Client) BulkIndex(ctx context.Context, stack string, transactions []*mo
 var ErrTransactionNotFound = fmt.Errorf("transaction not found")
 
 // GenerateDocumentID generates a unique document ID for a transaction.
-// Format: {side}_{external_id} - ensures uniqueness per side/external_id pair.
-func GenerateDocumentID(side models.TransactionSide, externalID string) string {
-	return fmt.Sprintf("%s_%s", side, externalID)
+// Uses the transaction UUID to avoid collisions when external IDs are missing.
+func GenerateDocumentID(id uuid.UUID) string {
+	return id.String()
 }
 
 // ExistsByExternalIDs checks which external_ids already exist in OpenSearch.
@@ -507,8 +510,8 @@ func (c *Client) SearchByField(ctx context.Context, stack string, side models.Tr
 	return transactions, nil
 }
 
-// GetTransactionsByProvider returns all transactions for a given provider and side.
-// Uses scroll API for large result sets.
+// GetTransactionsByProvider returns up to providerQueryLimit transactions for a given provider and side.
+// Results are sorted by occurred_at desc.
 func (c *Client) GetTransactionsByProvider(ctx context.Context, stack string, provider string, side models.TransactionSide) ([]*models.Transaction, error) {
 	indexPattern := TransactionIndexPattern(stack)
 
@@ -529,7 +532,7 @@ func (c *Client) GetTransactionsByProvider(ctx context.Context, stack string, pr
 				},
 			},
 		},
-		"size": 1000,
+		"size": providerQueryLimit,
 		"sort": []map[string]interface{}{
 			{"occurred_at": map[string]interface{}{"order": "desc"}},
 		},
@@ -577,7 +580,7 @@ type BulkItemResult struct {
 	Error   string // Non-empty if Success is false
 }
 
-// BulkIndexIdempotent indexes transactions using {side}_{external_id} as document ID.
+// BulkIndexIdempotent indexes transactions using transaction_id as document ID.
 // This ensures idempotency - duplicate transactions will be overwritten.
 // Returns per-item results so callers can Ack/Nack individually.
 func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transactions []*models.Transaction) ([]BulkItemResult, error) {
@@ -590,7 +593,7 @@ func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transact
 	for _, tx := range transactions {
 		doc := TransactionDocumentFromModel(tx)
 		indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
-		docID := GenerateDocumentID(tx.Side, tx.ExternalID)
+		docID := GenerateDocumentID(tx.ID)
 
 		// Action line
 		action := map[string]interface{}{
@@ -647,7 +650,7 @@ func (c *Client) CreateTransaction(ctx context.Context, stack string, tx *models
 	}
 
 	indexName := MonthlyTransactionIndexName(stack, tx.OccurredAt)
-	docID := GenerateDocumentID(tx.Side, tx.ExternalID)
+	docID := GenerateDocumentID(tx.ID)
 
 	res, err := c.client.Index(ctx, opensearchapi.IndexReq{
 		Index:      indexName,

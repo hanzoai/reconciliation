@@ -317,6 +317,7 @@ paths:
                 MISSING_ON_LEDGER,
                 DUPLICATE_LEDGER,
                 AMOUNT_MISMATCH,
+                CURRENCY_MISMATCH,
               ]
         - name: severity
           in: query
@@ -438,6 +439,7 @@ paths:
                 MISSING_ON_LEDGER,
                 DUPLICATE_LEDGER,
                 AMOUNT_MISMATCH,
+                CURRENCY_MISMATCH,
               ]
         - name: severity
           in: query
@@ -1184,6 +1186,7 @@ components:
               MISSING_ON_LEDGER,
               DUPLICATE_LEDGER,
               AMOUNT_MISMATCH,
+              CURRENCY_MISMATCH,
             ]
         severity:
           type: string

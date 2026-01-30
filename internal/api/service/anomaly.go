@@ -71,8 +71,12 @@ func (s *Service) GetAnomalyByID(ctx context.Context, anomalyID string) (*Anomal
 		return nil, newStorageError(err, "getting anomaly")
 	}
 
+	if anomaly.TransactionID == nil {
+		return nil, errors.Wrap(ErrValidation, "anomaly missing transactionID")
+	}
+
 	// Get the source transaction from OpenSearch
-	sourceTransaction, err := s.txStore.GetByID(ctx, anomaly.TransactionID)
+	sourceTransaction, err := s.txStore.GetByID(ctx, *anomaly.TransactionID)
 	if err != nil {
 		return nil, newStorageError(err, "getting source transaction")
 	}

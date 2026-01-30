@@ -26,7 +26,7 @@ type MatchResultV2 struct {
 // MatchV2 represents a match in v2 API format.
 type MatchV2 struct {
 	ID                     uuid.UUID   `json:"id"`
-	PolicyID               uuid.UUID   `json:"policyId"`
+	PolicyID               *uuid.UUID  `json:"policyId"`
 	LedgerTransactionIDs   []uuid.UUID `json:"ledgerTransactionIds"`
 	PaymentsTransactionIDs []uuid.UUID `json:"paymentsTransactionIds"`
 	Score                  float64     `json:"score"`
@@ -111,7 +111,7 @@ func (s *Service) ForceMatch(ctx context.Context, policyIDStr string, req *Force
 	// Create the match with MANUAL_MATCH decision
 	match := &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               policyID,
+		PolicyID:               &policyID,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  1.0, // Manual match has perfect score
@@ -279,7 +279,16 @@ func (s *Service) TriggerPolicyMatching(ctx context.Context, policyIDStr string)
 
 // collectPolicyTransactionIDs collects all transaction IDs for a policy from OpenSearch.
 func (s *Service) collectPolicyTransactionIDs(ctx context.Context, policy *models.Policy) ([]string, error) {
-	var transactionIDs []string
+	transactionIDs := make([]string, 0)
+	seen := make(map[string]struct{})
+
+	addTransactionID := func(id string) {
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+		transactionIDs = append(transactionIDs, id)
+	}
 
 	if policy.LedgerName != "" {
 		ledgerTxs, err := s.txStore.GetByProvider(ctx, policy.LedgerName, models.TransactionSideLedger)
@@ -287,21 +296,38 @@ func (s *Service) collectPolicyTransactionIDs(ctx context.Context, policy *model
 			return nil, fmt.Errorf("failed to get ledger transactions: %w", err)
 		}
 		for _, tx := range ledgerTxs {
-			transactionIDs = append(transactionIDs, tx.ID.String())
+			addTransactionID(tx.ID.String())
 		}
 	}
 
-	paymentProvider := policy.PaymentsProvider
-	if policy.ConnectorType != nil && *policy.ConnectorType != "" {
-		paymentProvider = *policy.ConnectorType
+	paymentProviders := make([]string, 0, 3)
+	addPaymentProvider := func(provider string) {
+		if provider == "" {
+			return
+		}
+		for _, existing := range paymentProviders {
+			if existing == provider {
+				return
+			}
+		}
+		paymentProviders = append(paymentProviders, provider)
 	}
-	if paymentProvider != "" {
-		paymentTxs, err := s.txStore.GetByProvider(ctx, paymentProvider, models.TransactionSidePayments)
+
+	addPaymentProvider(policy.PaymentsProvider)
+	if policy.ConnectorType != nil {
+		addPaymentProvider(*policy.ConnectorType)
+	}
+	if policy.ConnectorID != nil {
+		addPaymentProvider(*policy.ConnectorID)
+	}
+
+	for _, provider := range paymentProviders {
+		paymentTxs, err := s.txStore.GetByProvider(ctx, provider, models.TransactionSidePayments)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get payment transactions: %w", err)
+			return nil, fmt.Errorf("failed to get payment transactions for provider %s: %w", provider, err)
 		}
 		for _, tx := range paymentTxs {
-			transactionIDs = append(transactionIDs, tx.ID.String())
+			addTransactionID(tx.ID.String())
 		}
 	}
 
@@ -382,9 +408,10 @@ func (s *Service) runDeterministicMatching(ctx context.Context, policy *models.P
 	}
 
 	// Found a match - create the match record
+	policyID := policy.ID
 	match := &models.Match{
 		ID:       uuid.New(),
-		PolicyID: policy.ID,
+		PolicyID: &policyID,
 		Score:    1.0, // Deterministic match has perfect score
 		Decision: models.DecisionMatched,
 		Explanation: models.Explanation{

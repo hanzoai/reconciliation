@@ -63,5 +63,8 @@ func (t *Transaction) Validate() error {
 	if t.OccurredAt.IsZero() {
 		return errors.New("occurredAt is required")
 	}
+	if t.IngestedAt.IsZero() {
+		return errors.New("ingestedAt is required")
+	}
 	return nil
 }
