@@ -251,6 +251,7 @@ func (m *ProbabilisticMatcher) documentToTransaction(doc elasticsearch.Transacti
 		Amount:     doc.Amount,
 		Currency:   doc.Currency,
 		OccurredAt: doc.OccurredAt,
+		IngestedAt: doc.IngestedAt,
 		Metadata:   doc.Metadata,
 	}, nil
 }

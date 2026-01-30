@@ -194,6 +194,10 @@ func ListAnomaliesHandler(b backend.Backend) http.HandlerFunc {
 func ListPolicyAnomaliesHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		policyID := chi.URLParam(r, "policyID")
+		if _, err := uuid.Parse(policyID); err != nil {
+			api.BadRequest(w, ErrValidation, fmt.Errorf("invalid 'policyID' path param"))
+			return
+		}
 
 		q := storage.GetAnomaliesQuery{}
 
@@ -273,6 +277,10 @@ func ListPolicyAnomaliesHandler(b backend.Backend) http.HandlerFunc {
 func GetAnomalyHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		anomalyID := chi.URLParam(r, "anomalyID")
+		if _, err := uuid.Parse(anomalyID); err != nil {
+			api.BadRequest(w, ErrValidation, fmt.Errorf("invalid 'anomalyID' path param"))
+			return
+		}
 
 		result, err := b.GetService().GetAnomalyByID(r.Context(), anomalyID)
 		if err != nil {

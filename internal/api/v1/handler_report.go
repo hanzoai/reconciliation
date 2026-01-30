@@ -3,8 +3,10 @@ package v1
 import (
 	"encoding/csv"
 	"fmt"
+	"mime"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -41,8 +43,7 @@ func GetLatestPolicyReportHandler(b backend.Backend) http.HandlerFunc {
 		}
 
 		// Check Accept header for CSV format
-		accept := r.Header.Get("Accept")
-		if accept == "text/csv" {
+		if acceptsCSV(r.Header.Get("Accept")) {
 			renderReportCSV(w, report.ID.String(), policyIDStr, report.PeriodStart, report.PeriodEnd,
 				report.TotalTransactions, report.MatchedCount, report.MatchRate, report.AnomaliesByType, report.GeneratedAt)
 			return
@@ -63,6 +64,31 @@ func GetLatestPolicyReportHandler(b backend.Backend) http.HandlerFunc {
 
 		api.Ok(w, data)
 	}
+}
+
+func acceptsCSV(acceptHeader string) bool {
+	if acceptHeader == "" {
+		return false
+	}
+
+	for _, part := range strings.Split(acceptHeader, ",") {
+		mediaRange := strings.TrimSpace(part)
+		if mediaRange == "" {
+			continue
+		}
+		mediaType, _, err := mime.ParseMediaType(mediaRange)
+		if err != nil {
+			if strings.HasPrefix(strings.ToLower(mediaRange), "text/csv") {
+				return true
+			}
+			continue
+		}
+		if mediaType == "text/csv" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func renderReportCSV(w http.ResponseWriter, id, policyID string, periodStart, periodEnd time.Time,

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -48,6 +49,7 @@ type TransactionDocument struct {
 	Amount        int64                  `json:"amount"`
 	Currency      string                 `json:"currency"`
 	OccurredAt    time.Time              `json:"occurred_at"`
+	IngestedAt    time.Time              `json:"ingested_at"`
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -61,6 +63,7 @@ func TransactionDocumentFromModel(tx *models.Transaction) TransactionDocument {
 		Amount:        tx.Amount,
 		Currency:      tx.Currency,
 		OccurredAt:    tx.OccurredAt,
+		IngestedAt:    tx.IngestedAt,
 		Metadata:      tx.Metadata,
 	}
 }
@@ -86,6 +89,9 @@ var transactionMappingProperties = map[string]interface{}{
 		"type": "keyword",
 	},
 	"occurred_at": map[string]interface{}{
+		"type": "date",
+	},
+	"ingested_at": map[string]interface{}{
 		"type": "date",
 	},
 	"metadata": map[string]interface{}{
@@ -135,6 +141,7 @@ func (c *Client) CreateTransactionIndexTemplate(ctx context.Context, stack strin
 	if err != nil {
 		return fmt.Errorf("CreateTransactionIndexTemplate: failed to create index template: %w", err)
 	}
+	defer func() { _ = res.Inspect().Response.Body.Close() }()
 	if res.Inspect().Response.StatusCode >= 400 {
 		return fmt.Errorf("CreateTransactionIndexTemplate: unexpected status %d", res.Inspect().Response.StatusCode)
 	}
@@ -198,7 +205,7 @@ func (c *Client) SearchTransaction(ctx context.Context, stack string, transactio
 	}
 
 	if res.Hits.Total.Value == 0 {
-		return nil, fmt.Errorf("transaction not found: %s", transactionID)
+		return nil, ErrTransactionNotFound
 	}
 
 	// Parse the first hit's source into TransactionDocument
@@ -378,7 +385,7 @@ func (c *Client) ExistsByExternalIDs(ctx context.Context, stack string, side mod
 func (c *Client) GetTransactionByID(ctx context.Context, stack string, id uuid.UUID) (*models.Transaction, error) {
 	doc, err := c.SearchTransaction(ctx, stack, id)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, ErrTransactionNotFound) {
 			return nil, ErrTransactionNotFound
 		}
 		return nil, err
@@ -627,7 +634,15 @@ func (c *Client) BulkIndexIdempotent(ctx context.Context, stack string, transact
 
 	// Build per-item results
 	results := make([]BulkItemResult, len(transactions))
-	for i, item := range res.Items {
+	for i := range results {
+		results[i] = BulkItemResult{Success: false, Error: "missing bulk response item"}
+	}
+	maxItems := len(res.Items)
+	if len(transactions) < maxItems {
+		maxItems = len(transactions)
+	}
+	for i := 0; i < maxItems; i++ {
+		item := res.Items[i]
 		result := BulkItemResult{Success: true}
 		for _, r := range item {
 			if r.Error != nil {
@@ -677,6 +692,7 @@ func isDirectField(field string) bool {
 		"amount":         true,
 		"currency":       true,
 		"occurred_at":    true,
+		"ingested_at":    true,
 	}
 	return directFields[field]
 }
@@ -696,6 +712,7 @@ func documentToModel(doc *TransactionDocument) (*models.Transaction, error) {
 		Amount:     doc.Amount,
 		Currency:   doc.Currency,
 		OccurredAt: doc.OccurredAt,
+		IngestedAt: doc.IngestedAt,
 		Metadata:   doc.Metadata,
 	}, nil
 }

@@ -418,9 +418,8 @@ func TestListPolicyAnomalies(t *testing.T) {
 		{
 			name:               "invalid policy ID returns 400",
 			policyID:           "invalid-uuid",
-			serviceError:       service.ErrInvalidID,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  v2.ErrInvalidID,
+			expectedErrorCode:  v2.ErrValidation,
 		},
 		{
 			name:     "invalid state returns 400",
@@ -700,9 +699,8 @@ func TestGetAnomalyByID(t *testing.T) {
 		{
 			name:               "invalid ID returns 400",
 			anomalyID:          "invalid-uuid",
-			serviceError:       service.ErrInvalidID,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedErrorCode:  v2.ErrInvalidID,
+			expectedErrorCode:  v2.ErrValidation,
 		},
 		{
 			name:               "service error returns 500",
