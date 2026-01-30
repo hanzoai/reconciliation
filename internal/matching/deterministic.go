@@ -55,6 +55,7 @@ func (m *DeterministicMatcher) Match(ctx context.Context, transaction *models.Tr
 
 	// Get the deterministic fields to search by
 	fields := m.getDeterministicFields()
+	expectedProvider, hasProvider := expectedProviderForPolicySide(m.policy, oppositeSide)
 
 	// Collect all matching candidates
 	var candidates []Candidate
@@ -72,6 +73,9 @@ func (m *DeterministicMatcher) Match(ctx context.Context, transaction *models.Tr
 		}
 
 		for _, match := range matches {
+			if hasProvider && match.Provider != expectedProvider {
+				continue
+			}
 			candidates = append(candidates, Candidate{
 				Transaction: match,
 				Score:       1.0,
@@ -221,7 +225,7 @@ func (m *DeterministicMatcher) build1To1Result(
 
 	match := &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               m.policy.ID,
+		PolicyID:               &m.policy.ID,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  1.0,
@@ -277,7 +281,7 @@ func (m *DeterministicMatcher) build1ToNResult(
 
 	match := &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               m.policy.ID,
+		PolicyID:               &m.policy.ID,
 		LedgerTransactionIDs:   []uuid.UUID{sourceTx.ID},
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  1.0,
@@ -340,7 +344,7 @@ func (m *DeterministicMatcher) buildNTo1Result(
 
 	match := &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               m.policy.ID,
+		PolicyID:               &m.policy.ID,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: []uuid.UUID{sourceTx.ID},
 		Score:                  1.0,

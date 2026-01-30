@@ -89,7 +89,7 @@ func createTestMatch(t *testing.T, db *bun.DB, policyID uuid.UUID, ledgerTxIDs, 
 	t.Helper()
 	match := &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               policyID,
+		PolicyID:               &policyID,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  0.95,
@@ -110,8 +110,8 @@ func createTestAnomaly(t *testing.T, db *bun.DB, policyID, txID uuid.UUID, anoma
 	t.Helper()
 	anomaly := &models.Anomaly{
 		ID:            uuid.New(),
-		PolicyID:      policyID,
-		TransactionID: txID,
+		PolicyID:      &policyID,
+		TransactionID: &txID,
 		Type:          anomalyType,
 		Severity:      models.SeverityHigh,
 		State:         models.AnomalyStateOpen,

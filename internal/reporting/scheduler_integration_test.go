@@ -66,19 +66,22 @@ func TestSchedulerIntegration_GenerateDailyReports(t *testing.T) {
 		report1, err := store.GetLatestReportByPolicyID(context.Background(), policy1.ID)
 		require.NoError(t, err)
 		require.NotNil(t, report1)
-		require.Equal(t, policy1.ID, report1.PolicyID)
+		require.NotNil(t, report1.PolicyID)
+		require.Equal(t, policy1.ID, *report1.PolicyID)
 		require.Equal(t, int64(2), report1.TotalTransactions)
 
 		report2, err := store.GetLatestReportByPolicyID(context.Background(), policy2.ID)
 		require.NoError(t, err)
 		require.NotNil(t, report2)
-		require.Equal(t, policy2.ID, report2.PolicyID)
+		require.NotNil(t, report2.PolicyID)
+		require.Equal(t, policy2.ID, *report2.PolicyID)
 		require.Equal(t, int64(2), report2.TotalTransactions) // Only the D-1 match, not the one from 2 days ago
 
 		report3, err := store.GetLatestReportByPolicyID(context.Background(), policy3.ID)
 		require.NoError(t, err)
 		require.NotNil(t, report3)
-		require.Equal(t, policy3.ID, report3.PolicyID)
+		require.NotNil(t, report3.PolicyID)
+		require.Equal(t, policy3.ID, *report3.PolicyID)
 		require.Equal(t, int64(0), report3.TotalTransactions)
 
 		// Verify report period matches D-1 (use truncated comparison due to DB precision)
@@ -205,7 +208,8 @@ func TestSchedulerIntegration_ReportPersistedInDB(t *testing.T) {
 
 		// Verify all fields are persisted correctly
 		require.NotEqual(t, uuid.Nil, report.ID)
-		require.Equal(t, policy.ID, report.PolicyID)
+		require.NotNil(t, report.PolicyID)
+		require.Equal(t, policy.ID, *report.PolicyID)
 		require.NotZero(t, report.PeriodStart)
 		require.NotZero(t, report.PeriodEnd)
 		require.Equal(t, int64(2), report.TotalTransactions)

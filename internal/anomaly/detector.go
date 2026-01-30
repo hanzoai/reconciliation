@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/formancehq/reconciliation/internal/matching"
@@ -138,8 +140,8 @@ func (d *DefaultDetector) createAnomaly(transaction *models.Transaction, windowH
 
 	return &models.Anomaly{
 		ID:            uuid.New(),
-		PolicyID:      policyID,
-		TransactionID: transaction.ID,
+		PolicyID:      &policyID,
+		TransactionID: &transaction.ID,
 		Type:          anomalyType,
 		Severity:      severity,
 		State:         models.AnomalyStateOpen,
@@ -209,18 +211,28 @@ func (d *DefaultDetector) detectAmountMismatch(
 		}, nil
 	}
 
-	// Get the matched candidate (first one with the highest score)
-	matchedCandidate := matchResult.Candidates[0]
-	if matchedCandidate.Transaction == nil {
+	matchedTransactions := d.getMatchedTransactions(matchResult)
+	if len(matchedTransactions) == 0 {
 		return &DetectResult{
 			Anomaly: nil,
 			Pending: false,
 		}, nil
 	}
 
+	// Currency must be verified first; mismatch creates a dedicated anomaly.
+	if anomaly := d.detectCurrencyMismatch(transaction, matchedTransactions, policyID); anomaly != nil {
+		return &DetectResult{
+			Anomaly: anomaly,
+			Pending: false,
+		}, nil
+	}
+
 	// Calculate amount delta
 	sourceAmount := transaction.Amount
-	matchedAmount := matchedCandidate.Transaction.Amount
+	matchedAmount := int64(0)
+	for _, matchedTx := range matchedTransactions {
+		matchedAmount += matchedTx.Amount
+	}
 	delta := int64(math.Abs(float64(sourceAmount - matchedAmount)))
 
 	// If amounts are equal, no anomaly
@@ -232,7 +244,7 @@ func (d *DefaultDetector) detectAmountMismatch(
 	}
 
 	// Calculate percentage difference
-	avgAmount := float64(sourceAmount+matchedAmount) / 2.0
+	avgAmount := (math.Abs(float64(sourceAmount)) + math.Abs(float64(matchedAmount))) / 2.0
 	if avgAmount == 0 {
 		return &DetectResult{
 			Anomaly: nil,
@@ -262,8 +274,8 @@ func (d *DefaultDetector) detectAmountMismatch(
 
 	anomaly := &models.Anomaly{
 		ID:            uuid.New(),
-		PolicyID:      policyID,
-		TransactionID: transaction.ID,
+		PolicyID:      &policyID,
+		TransactionID: &transaction.ID,
 		Type:          models.AnomalyTypeAmountMismatch,
 		Severity:      models.SeverityMedium,
 		State:         models.AnomalyStateOpen,
@@ -278,4 +290,97 @@ func (d *DefaultDetector) detectAmountMismatch(
 		Anomaly: anomaly,
 		Pending: false,
 	}, nil
+}
+
+func (d *DefaultDetector) getMatchedTransactions(matchResult *matching.MatchResult) []*models.Transaction {
+	if matchResult == nil || len(matchResult.Candidates) == 0 {
+		return nil
+	}
+
+	if matchResult.Match == nil {
+		if matchResult.Candidates[0].Transaction == nil {
+			return nil
+		}
+		return []*models.Transaction{matchResult.Candidates[0].Transaction}
+	}
+
+	matchedIDs := make(map[uuid.UUID]struct{})
+	for _, id := range matchResult.Match.LedgerTransactionIDs {
+		matchedIDs[id] = struct{}{}
+	}
+	for _, id := range matchResult.Match.PaymentsTransactionIDs {
+		matchedIDs[id] = struct{}{}
+	}
+
+	matched := make([]*models.Transaction, 0, len(matchResult.Candidates))
+	for _, candidate := range matchResult.Candidates {
+		if candidate.Transaction == nil {
+			continue
+		}
+		if _, ok := matchedIDs[candidate.Transaction.ID]; ok {
+			matched = append(matched, candidate.Transaction)
+		}
+	}
+
+	if len(matched) == 0 && matchResult.Candidates[0].Transaction != nil {
+		return []*models.Transaction{matchResult.Candidates[0].Transaction}
+	}
+
+	return matched
+}
+
+func (d *DefaultDetector) detectCurrencyMismatch(
+	transaction *models.Transaction,
+	matchedTransactions []*models.Transaction,
+	policyID uuid.UUID,
+) *models.Anomaly {
+	if transaction == nil || len(matchedTransactions) == 0 {
+		return nil
+	}
+
+	mismatchedCurrencies := make(map[string]struct{})
+	for _, matchedTx := range matchedTransactions {
+		if matchedTx == nil {
+			continue
+		}
+		if matchedTx.Currency != transaction.Currency {
+			mismatchedCurrencies[matchedTx.Currency] = struct{}{}
+		}
+	}
+
+	if len(mismatchedCurrencies) == 0 {
+		return nil
+	}
+
+	otherCurrencies := make([]string, 0, len(mismatchedCurrencies))
+	for currency := range mismatchedCurrencies {
+		otherCurrencies = append(otherCurrencies, currency)
+	}
+	sort.Strings(otherCurrencies)
+
+	var reason string
+	if transaction.Side == models.TransactionSideLedger {
+		reason = fmt.Sprintf(
+			"Currency mismatch: Ledger=%s, Payments=%s",
+			transaction.Currency,
+			strings.Join(otherCurrencies, ","),
+		)
+	} else {
+		reason = fmt.Sprintf(
+			"Currency mismatch: Ledger=%s, Payment=%s",
+			strings.Join(otherCurrencies, ","),
+			transaction.Currency,
+		)
+	}
+
+	return &models.Anomaly{
+		ID:            uuid.New(),
+		PolicyID:      &policyID,
+		TransactionID: &transaction.ID,
+		Type:          models.AnomalyTypeCurrencyMismatch,
+		Severity:      models.SeverityHigh,
+		State:         models.AnomalyStateOpen,
+		Reason:        reason,
+		CreatedAt:     d.timeProvider.Now(),
+	}
 }

@@ -32,11 +32,11 @@ type LedgerPosting struct {
 	Asset       string   `json:"asset"`
 }
 
-// NormalizeLedgerEvent transforms a raw Ledger event into a Transaction.
+// NormalizeLedgerEvent transforms a raw Ledger event into Transactions.
 // Returns (nil, nil) for non-relevant events that should be skipped.
-// Returns (*Transaction, nil) for a successfully normalized transaction.
+// Returns ([]*Transaction, nil) for successfully normalized transactions.
 // Returns (nil, error) for malformed events that cannot be processed.
-func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) (*models.Transaction, error) {
+func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) ([]*models.Transaction, error) {
 	// Check if this is a transaction event we care about
 	if event.Type != LedgerEventTypeTransactionCreated {
 		logging.FromContext(ctx).Debugf("Skipping non-relevant ledger event type: %s", event.Type)
@@ -55,52 +55,32 @@ func NormalizeLedgerEvent(ctx context.Context, event LedgerEvent) (*models.Trans
 		return nil, nil
 	}
 
-	if len(txDataList) > 1 {
-		return nil, fmt.Errorf("batch transactions are not supported: got %d transactions", len(txDataList))
+	transactions := make([]*models.Transaction, 0, len(txDataList))
+	var lastErr error
+	for i, txData := range txDataList {
+		tx, err := normalizeLedgerTransaction(ctx, event, txData)
+		if err != nil {
+			lastErr = err
+			logging.FromContext(ctx).WithFields(map[string]interface{}{
+				"error":        err.Error(),
+				"event_type":   event.Type,
+				"ledger":       event.Ledger,
+				"tx_index":     i,
+				"transactions": len(txDataList),
+			}).Error("Failed to normalize ledger transaction, skipping")
+			continue
+		}
+		transactions = append(transactions, tx)
 	}
 
-	txData := txDataList[0]
-
-	// Extract external ID from transaction_id
-	externalID, err := extractExternalID(txData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract external_id: %w", err)
+	if len(transactions) == 0 {
+		if lastErr != nil {
+			return nil, fmt.Errorf("failed to normalize any ledger transactions: %w", lastErr)
+		}
+		return nil, fmt.Errorf("failed to normalize any ledger transactions")
 	}
 
-	// Extract and aggregate amount from postings
-	amount, currency, err := extractAmountFromPostings(txData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract amount from postings: %w", err)
-	}
-
-	// Extract occurred_at timestamp
-	occurredAt, err := extractOccurredAt(txData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract occurred_at: %w", err)
-	}
-
-	// Extract metadata
-	metadata := extractMetadata(txData)
-
-	tx := &models.Transaction{
-		ID:         uuid.New(),
-		Side:       models.TransactionSideLedger,
-		Provider:   event.Ledger,
-		ExternalID: externalID,
-		Amount:     amount,
-		Currency:   currency,
-		OccurredAt: occurredAt,
-		IngestedAt: time.Now(),
-		Metadata:   metadata,
-	}
-
-	logging.FromContext(ctx).WithFields(map[string]interface{}{
-		"external_id": tx.ExternalID,
-		"provider":    tx.Provider,
-		"occurred_at": tx.OccurredAt,
-	}).Debug("Created ledger transaction")
-
-	return tx, nil
+	return transactions, nil
 }
 
 // extractTransactionDataList extracts transaction objects from the payload.
@@ -148,30 +128,24 @@ func extractTransactionDataList(payload map[string]interface{}) ([]map[string]in
 func extractExternalID(txData map[string]interface{}) (string, error) {
 	// Try "id" field first (this is the transaction ID in Formance Ledger)
 	if id, ok := txData["id"]; ok {
-		switch v := id.(type) {
-		case string:
+		if v, ok := id.(string); ok {
+			if v == "" {
+				return "", fmt.Errorf("transaction id is empty")
+			}
 			return v, nil
-		case float64:
-			return fmt.Sprintf("%.0f", v), nil
-		case int:
-			return fmt.Sprintf("%d", v), nil
-		case int64:
-			return fmt.Sprintf("%d", v), nil
 		}
+		return "", fmt.Errorf("transaction id must be a string")
 	}
 
 	// Try "txid" field as fallback
 	if txid, ok := txData["txid"]; ok {
-		switch v := txid.(type) {
-		case string:
+		if v, ok := txid.(string); ok {
+			if v == "" {
+				return "", fmt.Errorf("transaction id is empty")
+			}
 			return v, nil
-		case float64:
-			return fmt.Sprintf("%.0f", v), nil
-		case int:
-			return fmt.Sprintf("%d", v), nil
-		case int64:
-			return fmt.Sprintf("%d", v), nil
 		}
+		return "", fmt.Errorf("transaction txid must be a string")
 	}
 
 	return "", fmt.Errorf("missing transaction id")
@@ -338,4 +312,47 @@ func extractMetadata(txData map[string]interface{}) map[string]interface{} {
 	}
 
 	return result
+}
+
+func normalizeLedgerTransaction(ctx context.Context, event LedgerEvent, txData map[string]interface{}) (*models.Transaction, error) {
+	// Extract external ID from transaction_id
+	externalID, err := extractExternalID(txData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract external_id: %w", err)
+	}
+
+	// Extract and aggregate amount from postings
+	amount, currency, err := extractAmountFromPostings(txData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract amount from postings: %w", err)
+	}
+
+	// Extract occurred_at timestamp
+	occurredAt, err := extractOccurredAt(txData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract occurred_at: %w", err)
+	}
+
+	// Extract metadata
+	metadata := extractMetadata(txData)
+
+	tx := &models.Transaction{
+		ID:         uuid.New(),
+		Side:       models.TransactionSideLedger,
+		Provider:   event.Ledger,
+		ExternalID: externalID,
+		Amount:     amount,
+		Currency:   currency,
+		OccurredAt: occurredAt,
+		IngestedAt: time.Now(),
+		Metadata:   metadata,
+	}
+
+	logging.FromContext(ctx).WithFields(map[string]interface{}{
+		"external_id": tx.ExternalID,
+		"provider":    tx.Provider,
+		"occurred_at": tx.OccurredAt,
+	}).Debug("Created ledger transaction")
+
+	return tx, nil
 }

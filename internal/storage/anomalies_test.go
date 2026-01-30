@@ -33,8 +33,8 @@ func createTestPolicyForAnomaly(t *testing.T, store *Storage) *models.Policy {
 func createTestAnomaly(policyID, transactionID uuid.UUID, anomalyType models.AnomalyType, severity models.Severity) *models.Anomaly {
 	return &models.Anomaly{
 		ID:            uuid.New(),
-		PolicyID:      policyID,
-		TransactionID: transactionID,
+		PolicyID:      &policyID,
+		TransactionID: &transactionID,
 		Type:          anomalyType,
 		Severity:      severity,
 		State:         models.AnomalyStateOpen,
@@ -58,8 +58,12 @@ func TestAnomalyCreate(t *testing.T) {
 		fetched, err := store.GetAnomalyByID(context.Background(), anomaly.ID)
 		require.NoError(t, err)
 		require.Equal(t, anomaly.ID, fetched.ID)
-		require.Equal(t, anomaly.PolicyID, fetched.PolicyID)
-		require.Equal(t, anomaly.TransactionID, fetched.TransactionID)
+		require.NotNil(t, anomaly.PolicyID)
+		require.NotNil(t, fetched.PolicyID)
+		require.Equal(t, *anomaly.PolicyID, *fetched.PolicyID)
+		require.NotNil(t, anomaly.TransactionID)
+		require.NotNil(t, fetched.TransactionID)
+		require.Equal(t, *anomaly.TransactionID, *fetched.TransactionID)
 		require.Equal(t, anomaly.Type, fetched.Type)
 		require.Equal(t, anomaly.Severity, fetched.Severity)
 		require.Equal(t, anomaly.State, fetched.State)
@@ -184,7 +188,8 @@ func TestAnomalyListByPolicy(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, cursor.Data, 3)
 		for _, a := range cursor.Data {
-			require.Equal(t, policy.ID, a.PolicyID)
+			require.NotNil(t, a.PolicyID)
+			require.Equal(t, policy.ID, *a.PolicyID)
 		}
 	})
 
@@ -253,8 +258,12 @@ func TestAnomalyResolve(t *testing.T) {
 		require.Equal(t, resolvedBy, *fetched.ResolvedBy)
 
 		// Verify other fields unchanged
-		require.Equal(t, anomaly.PolicyID, fetched.PolicyID)
-		require.Equal(t, anomaly.TransactionID, fetched.TransactionID)
+		require.NotNil(t, anomaly.PolicyID)
+		require.NotNil(t, fetched.PolicyID)
+		require.Equal(t, *anomaly.PolicyID, *fetched.PolicyID)
+		require.NotNil(t, anomaly.TransactionID)
+		require.NotNil(t, fetched.TransactionID)
+		require.Equal(t, *anomaly.TransactionID, *fetched.TransactionID)
 		require.Equal(t, anomaly.Type, fetched.Type)
 		require.Equal(t, anomaly.Severity, fetched.Severity)
 		require.Equal(t, anomaly.Reason, fetched.Reason)

@@ -358,10 +358,10 @@ func TestProbabilisticMatcher_CalculateMetadataScore(t *testing.T) {
 	matcher := NewProbabilisticMatcher(nil, policy, "", DefaultProbabilisticMatcherConfig())
 
 	tests := []struct {
-		name            string
-		sourceMetadata  map[string]interface{}
-		candidateMeta   map[string]interface{}
-		expectedScore   float64
+		name           string
+		sourceMetadata map[string]interface{}
+		candidateMeta  map[string]interface{}
+		expectedScore  float64
 	}{
 		{
 			name: "all fields match",
@@ -398,8 +398,8 @@ func TestProbabilisticMatcher_CalculateMetadataScore(t *testing.T) {
 			expectedScore: 0.0,
 		},
 		{
-			name:            "empty source metadata",
-			sourceMetadata:  map[string]interface{}{},
+			name:           "empty source metadata",
+			sourceMetadata: map[string]interface{}{},
 			candidateMeta: map[string]interface{}{
 				"order_id": "order-123",
 			},
@@ -412,11 +412,42 @@ func TestProbabilisticMatcher_CalculateMetadataScore(t *testing.T) {
 			source := &models.Transaction{Metadata: tt.sourceMetadata}
 			candidate := &models.Transaction{Metadata: tt.candidateMeta}
 
-			score := matcher.calculateMetadataScore(source, candidate)
+			score := matcher.calculateMetadataScore(source, candidate, nil)
 
 			assert.Equal(t, tt.expectedScore, score)
 		})
 	}
+}
+
+func TestProbabilisticMatcher_CalculateMetadataScore_Config(t *testing.T) {
+	policy := &models.Policy{
+		ID:   uuid.New(),
+		Name: "test-policy",
+	}
+
+	matcher := NewProbabilisticMatcher(nil, policy, "", DefaultProbabilisticMatcherConfig())
+
+	source := &models.Transaction{
+		Metadata: map[string]interface{}{
+			"order_id": "ORDER-123",
+			"status":   "Completed",
+			"extra":    "ignored",
+		},
+	}
+	candidate := &models.Transaction{
+		Metadata: map[string]interface{}{
+			"order_id": "order-123",
+			"status":   "completed",
+			"extra":    "ignored",
+		},
+	}
+
+	score := matcher.calculateMetadataScore(source, candidate, &models.ScoringConfig{
+		MetadataFields:          []string{"order_id", "status"},
+		MetadataCaseInsensitive: true,
+	})
+
+	assert.Equal(t, 1.0, score)
 }
 
 func TestProbabilisticMatcher_BuildResult_Thresholds(t *testing.T) {
@@ -558,7 +589,8 @@ func TestProbabilisticMatcher_CreateMatch_LedgerSource(t *testing.T) {
 	match := matcher.createMatch(sourceTx, candidate)
 
 	assert.NotNil(t, match)
-	assert.Equal(t, policyID, match.PolicyID)
+	require.NotNil(t, match.PolicyID)
+	assert.Equal(t, policyID, *match.PolicyID)
 	assert.Contains(t, match.LedgerTransactionIDs, sourceTxID)
 	assert.Contains(t, match.PaymentsTransactionIDs, candidateTxID)
 	assert.Equal(t, 0.95, match.Score)

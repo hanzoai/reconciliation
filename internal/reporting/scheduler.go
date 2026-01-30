@@ -63,9 +63,11 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	// Create a new cron scheduler with seconds precision disabled (standard cron format)
 	s.cron = cron.New(cron.WithLocation(time.UTC))
 
+	runCtx := context.WithoutCancel(ctx)
+
 	// Add the report generation job
 	_, err := s.cron.AddFunc(s.config.Schedule, func() {
-		s.generateDailyReports(ctx)
+		s.generateDailyReports(runCtx)
 	})
 	if err != nil {
 		return err
@@ -160,9 +162,10 @@ func (s *Scheduler) generateAndPersistReport(ctx context.Context, generator *Gen
 	}
 
 	// Convert to model and persist
+	reportPolicyID := report.PolicyID
 	modelReport := &models.Report{
 		ID:                uuid.New(),
-		PolicyID:          report.PolicyID,
+		PolicyID:          &reportPolicyID,
 		PeriodStart:       report.PeriodStart,
 		PeriodEnd:         report.PeriodEnd,
 		TotalTransactions: report.TotalTransactions,
@@ -177,7 +180,7 @@ func (s *Scheduler) generateAndPersistReport(ctx context.Context, generator *Gen
 	}
 
 	logger.WithFields(map[string]interface{}{
-		"policy_id":          policyID,
+		"policy_id":          reportPolicyID,
 		"report_id":          modelReport.ID,
 		"total_transactions": report.TotalTransactions,
 		"matched_count":      report.MatchedCount,

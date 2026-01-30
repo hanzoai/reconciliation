@@ -60,7 +60,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -75,7 +75,7 @@ func TestReconciliation(t *testing.T) {
 			policyID: policyID.String(),
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -96,7 +96,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -117,7 +117,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				Status:               models.ReconciliationOK,
@@ -137,7 +137,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -159,7 +159,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -181,7 +181,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -203,7 +203,7 @@ func TestReconciliation(t *testing.T) {
 			},
 			res: &models.Reconciliation{
 				ID:                   uuid.New(),
-				PolicyID:             policyID,
+				PolicyID:             &policyID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -229,7 +229,7 @@ func TestReconciliation(t *testing.T) {
 
 			expectedReconciliationResponse := &reconciliationResponse{
 				ID:                   testCase.res.ID.String(),
-				PolicyID:             testCase.res.PolicyID.String(),
+				PolicyID:             "",
 				CreatedAt:            testCase.res.CreatedAt,
 				ReconciledAtLedger:   testCase.res.ReconciledAtLedger,
 				ReconciledAtPayments: testCase.res.ReconciledAtPayments,
@@ -237,6 +237,9 @@ func TestReconciliation(t *testing.T) {
 				PaymentsBalances:     testCase.res.PaymentsBalances,
 				LedgerBalances:       testCase.res.LedgerBalances,
 				Error:                testCase.res.Error,
+			}
+			if testCase.res.PolicyID != nil {
+				expectedReconciliationResponse.PolicyID = testCase.res.PolicyID.String()
 			}
 
 			backend, mockService := rootapi.NewTestingBackend(t)
@@ -334,9 +337,10 @@ func TestGetReconciliation(t *testing.T) {
 				testCase.expectedStatusCode = http.StatusOK
 			}
 
+			policyUUID := uuid.New()
 			getReconciliationResponse := &models.Reconciliation{
 				ID:                   testCase.id,
-				PolicyID:             uuid.New(),
+				PolicyID:             &policyUUID,
 				CreatedAt:            time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtLedger:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				ReconciledAtPayments: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -354,7 +358,7 @@ func TestGetReconciliation(t *testing.T) {
 
 			expectedReconciliationResponse := &reconciliationResponse{
 				ID:                   getReconciliationResponse.ID.String(),
-				PolicyID:             getReconciliationResponse.PolicyID.String(),
+				PolicyID:             "",
 				CreatedAt:            getReconciliationResponse.CreatedAt,
 				ReconciledAtLedger:   getReconciliationResponse.ReconciledAtLedger,
 				ReconciledAtPayments: getReconciliationResponse.ReconciledAtPayments,
@@ -362,6 +366,9 @@ func TestGetReconciliation(t *testing.T) {
 				PaymentsBalances:     getReconciliationResponse.PaymentsBalances,
 				LedgerBalances:       getReconciliationResponse.LedgerBalances,
 				Error:                getReconciliationResponse.Error,
+			}
+			if getReconciliationResponse.PolicyID != nil {
+				expectedReconciliationResponse.PolicyID = getReconciliationResponse.PolicyID.String()
 			}
 
 			backend, mockService := rootapi.NewTestingBackend(t)

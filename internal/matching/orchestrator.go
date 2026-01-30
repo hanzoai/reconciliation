@@ -166,6 +166,20 @@ func (o *MatchingOrchestrator) Match(ctx context.Context, transaction *models.Tr
 
 	// Step 3: Persist the result if we have a match
 	if result.Match != nil {
+		txIDs := make([]uuid.UUID, 0, len(result.Match.LedgerTransactionIDs)+len(result.Match.PaymentsTransactionIDs))
+		txIDs = append(txIDs, result.Match.LedgerTransactionIDs...)
+		txIDs = append(txIDs, result.Match.PaymentsTransactionIDs...)
+
+		if len(txIDs) > 0 {
+			existing, err := o.matchRepo.FindByTransactionIDs(ctx, o.policy.ID, txIDs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check existing matches: %w", err)
+			}
+			if existing != nil {
+				return nil, fmt.Errorf("transaction already part of match %s for policy %s", existing.ID, o.policy.ID)
+			}
+		}
+
 		if err := o.matchRepo.Create(ctx, result.Match); err != nil {
 			return nil, fmt.Errorf("failed to persist match: %w", err)
 		}

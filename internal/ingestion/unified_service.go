@@ -139,6 +139,7 @@ func (h *UnifiedEventHandler) Handle(ctx context.Context, event Event) error {
 			"event_id": genericEvent.ID,
 			"error":    err.Error(),
 		}).Debug("failed to parse event type, skipping")
+		h.ackIfBatch(genericEvent)
 		return nil // Skip malformed events
 	}
 
@@ -156,6 +157,7 @@ func (h *UnifiedEventHandler) Handle(ctx context.Context, event Event) error {
 			"event_id":   genericEvent.ID,
 			"event_type": raw.Type,
 		}).Debug("ignoring non-relevant event type")
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 }
@@ -176,6 +178,7 @@ func (h *UnifiedEventHandler) handleLedgerEvent(ctx context.Context, genericEven
 			"error": err.Error(),
 		}).Error("failed to unmarshal ledger event, skipping")
 		h.recordMetrics(ctx, SideLedger, StatusError, startTime, time.Time{})
+		h.ackIfBatch(genericEvent)
 		return nil // Skip malformed events, don't retry
 	}
 
@@ -188,8 +191,8 @@ func (h *UnifiedEventHandler) handleLedgerEvent(ctx context.Context, genericEven
 		}
 	}
 
-	// Normalize the event into a transaction
-	tx, err := NormalizeLedgerEvent(ctx, ledgerEvent)
+	// Normalize the event into transactions
+	txs, err := NormalizeLedgerEvent(ctx, ledgerEvent)
 	if err != nil {
 		logger.WithFields(map[string]interface{}{
 			"error":       err.Error(),
@@ -197,24 +200,38 @@ func (h *UnifiedEventHandler) handleLedgerEvent(ctx context.Context, genericEven
 			"ledger_name": ledgerName,
 		}).Error("failed to normalize ledger event, skipping")
 		h.recordMetrics(ctx, SideLedger, StatusError, startTime, time.Time{})
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
 	// If normalizer returns nil, the event is not relevant
-	if tx == nil {
+	if len(txs) == 0 {
 		logger.Debug("ledger event not relevant, skipping")
 		h.recordMetrics(ctx, SideLedger, StatusSkipped, startTime, time.Time{})
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
 	// Submit to batch buffer (handles both batch and single mode)
 	if h.batchBuffer != nil && genericEvent.Message != nil {
-		h.batchBuffer.Submit(ctx, genericEvent.Message, tx)
-		return nil // Buffer will handle Ack/Nack
+		if len(txs) == 1 {
+			h.batchBuffer.Submit(ctx, genericEvent.Message, txs[0])
+			return nil // Buffer will handle Ack/Nack
+		}
+
+		if err := h.persistTransactionsDirect(ctx, logger, txs, SideLedger, startTime); err != nil {
+			genericEvent.Message.Nack()
+			return err
+		}
+		genericEvent.Message.Ack()
+		return nil
 	}
 
 	// Fallback: direct store (should not happen in normal operation)
-	return h.persistTransactionDirect(ctx, logger, tx, SideLedger, startTime)
+	if err := h.persistTransactionsDirect(ctx, logger, txs, SideLedger, startTime); err != nil {
+		return err
+	}
+	return nil
 }
 
 // handlePaymentEvent processes a payment event (SAVED_PAYMENT).
@@ -233,6 +250,7 @@ func (h *UnifiedEventHandler) handlePaymentEvent(ctx context.Context, genericEve
 			"error": err.Error(),
 		}).Error("failed to unmarshal payments event, skipping")
 		h.recordMetrics(ctx, SidePayment, StatusError, startTime, time.Time{})
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
@@ -244,6 +262,7 @@ func (h *UnifiedEventHandler) handlePaymentEvent(ctx context.Context, genericEve
 			"event_type": paymentsEvent.Type,
 		}).Error("failed to normalize payments event, skipping")
 		h.recordMetrics(ctx, SidePayment, StatusError, startTime, time.Time{})
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
@@ -251,6 +270,7 @@ func (h *UnifiedEventHandler) handlePaymentEvent(ctx context.Context, genericEve
 	if tx == nil {
 		logger.Debug("payments event not relevant, skipping")
 		h.recordMetrics(ctx, SidePayment, StatusSkipped, startTime, time.Time{})
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
@@ -317,6 +337,21 @@ func (h *UnifiedEventHandler) persistTransactionDirect(
 	return nil
 }
 
+func (h *UnifiedEventHandler) persistTransactionsDirect(
+	ctx context.Context,
+	logger logging.Logger,
+	txs []*models.Transaction,
+	metricsSide string,
+	startTime time.Time,
+) error {
+	for _, tx := range txs {
+		if err := h.persistTransactionDirect(ctx, logger, tx, metricsSide, startTime); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // handleBackfillEvent processes a BACKFILL event by delegating to the BackfillExecutor.
 func (h *UnifiedEventHandler) handleBackfillEvent(ctx context.Context, genericEvent *GenericEvent) error {
 	logger := logging.FromContext(ctx).WithFields(map[string]interface{}{
@@ -326,6 +361,7 @@ func (h *UnifiedEventHandler) handleBackfillEvent(ctx context.Context, genericEv
 
 	if h.backfillExecutor == nil {
 		logger.Error("backfill executor not configured, skipping backfill event")
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
@@ -340,6 +376,7 @@ func (h *UnifiedEventHandler) handleBackfillEvent(ctx context.Context, genericEv
 		logger.WithFields(map[string]interface{}{
 			"error": err.Error(),
 		}).Error("failed to unmarshal backfill event, skipping")
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
@@ -349,6 +386,7 @@ func (h *UnifiedEventHandler) handleBackfillEvent(ctx context.Context, genericEv
 			"backfill_id": backfillEvent.Payload.BackfillID,
 			"error":       err.Error(),
 		}).Error("invalid backfill ID, skipping")
+		h.ackIfBatch(genericEvent)
 		return nil
 	}
 
@@ -369,6 +407,7 @@ func (h *UnifiedEventHandler) handleBackfillEvent(ctx context.Context, genericEv
 		}
 	}()
 
+	h.ackIfBatch(genericEvent)
 	return nil
 }
 
@@ -412,6 +451,13 @@ func (h *UnifiedEventHandler) recordMetrics(ctx context.Context, side, status st
 	if !eventTimestamp.IsZero() {
 		h.metrics.RecordLag(ctx, side, eventTimestamp)
 	}
+}
+
+func (h *UnifiedEventHandler) ackIfBatch(event *GenericEvent) {
+	if h.batchBuffer == nil || event == nil || event.Message == nil {
+		return
+	}
+	event.Message.Ack()
 }
 
 // Ensure UnifiedEventHandler implements EventHandler interface.

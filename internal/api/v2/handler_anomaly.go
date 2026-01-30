@@ -82,10 +82,18 @@ type anomalyDetailResponse struct {
 }
 
 func anomalyToResponse(a models.Anomaly) anomalyResponse {
+	policyIDStr := ""
+	if a.PolicyID != nil {
+		policyIDStr = a.PolicyID.String()
+	}
+	transactionIDStr := ""
+	if a.TransactionID != nil {
+		transactionIDStr = a.TransactionID.String()
+	}
 	return anomalyResponse{
 		ID:            a.ID.String(),
-		PolicyID:      a.PolicyID.String(),
-		TransactionID: a.TransactionID.String(),
+		PolicyID:      policyIDStr,
+		TransactionID: transactionIDStr,
 		Type:          string(a.Type),
 		Severity:      string(a.Severity),
 		State:         string(a.State),
@@ -139,7 +147,7 @@ func ListAnomaliesHandler(b backend.Backend) http.HandlerFunc {
 			if anomalyType := r.URL.Query().Get("type"); anomalyType != "" {
 				t := models.AnomalyType(anomalyType)
 				if !t.IsValid() {
-					api.BadRequest(w, ErrValidation, fmt.Errorf("invalid 'type' query param: must be one of MISSING_ON_PAYMENTS, MISSING_ON_LEDGER, DUPLICATE_LEDGER, AMOUNT_MISMATCH"))
+					api.BadRequest(w, ErrValidation, fmt.Errorf("invalid 'type' query param: must be one of MISSING_ON_PAYMENTS, MISSING_ON_LEDGER, DUPLICATE_LEDGER, AMOUNT_MISMATCH, CURRENCY_MISMATCH"))
 					return
 				}
 				filters.Type = &t
@@ -218,7 +226,7 @@ func ListPolicyAnomaliesHandler(b backend.Backend) http.HandlerFunc {
 			if anomalyType := r.URL.Query().Get("type"); anomalyType != "" {
 				t := models.AnomalyType(anomalyType)
 				if !t.IsValid() {
-					api.BadRequest(w, ErrValidation, fmt.Errorf("invalid 'type' query param: must be one of MISSING_ON_PAYMENTS, MISSING_ON_LEDGER, DUPLICATE_LEDGER, AMOUNT_MISMATCH"))
+					api.BadRequest(w, ErrValidation, fmt.Errorf("invalid 'type' query param: must be one of MISSING_ON_PAYMENTS, MISSING_ON_LEDGER, DUPLICATE_LEDGER, AMOUNT_MISMATCH, CURRENCY_MISMATCH"))
 					return
 				}
 				filters.Type = &t
@@ -284,8 +292,8 @@ func GetAnomalyHandler(b backend.Backend) http.HandlerFunc {
 
 		response := anomalyDetailResponse{
 			ID:                result.Anomaly.ID.String(),
-			PolicyID:          result.Anomaly.PolicyID.String(),
-			TransactionID:     result.Anomaly.TransactionID.String(),
+			PolicyID:          "",
+			TransactionID:     "",
 			Type:              string(result.Anomaly.Type),
 			Severity:          string(result.Anomaly.Severity),
 			State:             string(result.Anomaly.State),
@@ -295,6 +303,12 @@ func GetAnomalyHandler(b backend.Backend) http.HandlerFunc {
 			ResolvedBy:        result.Anomaly.ResolvedBy,
 			SourceTransaction: transactionToResponse(result.SourceTransaction),
 			Candidates:        candidates,
+		}
+		if result.Anomaly.PolicyID != nil {
+			response.PolicyID = result.Anomaly.PolicyID.String()
+		}
+		if result.Anomaly.TransactionID != nil {
+			response.TransactionID = result.Anomaly.TransactionID.String()
 		}
 
 		api.Ok(w, response)

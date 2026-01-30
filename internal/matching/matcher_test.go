@@ -147,7 +147,7 @@ func TestMatchResult_JSONSerialization(t *testing.T) {
 	result := MatchResult{
 		Match: &models.Match{
 			ID:       matchID,
-			PolicyID: policyID,
+			PolicyID: &policyID,
 			Score:    0.98,
 			Decision: models.DecisionMatched,
 		},
@@ -180,7 +180,9 @@ func TestMatchResult_JSONSerialization(t *testing.T) {
 
 	assert.Equal(t, result.Decision, decoded.Decision)
 	assert.Equal(t, result.Match.ID, decoded.Match.ID)
-	assert.Equal(t, result.Match.PolicyID, decoded.Match.PolicyID)
+	require.NotNil(t, result.Match.PolicyID)
+	require.NotNil(t, decoded.Match.PolicyID)
+	assert.Equal(t, *result.Match.PolicyID, *decoded.Match.PolicyID)
 	assert.Len(t, decoded.Candidates, 1)
 	assert.Equal(t, result.Candidates[0].Score, decoded.Candidates[0].Score)
 	assert.Equal(t, result.Candidates[0].Reasons, decoded.Candidates[0].Reasons)
@@ -278,7 +280,8 @@ func TestMatchResult_JSONDeserialization(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, matchID, result.Match.ID)
-	assert.Equal(t, policyID, result.Match.PolicyID)
+	require.NotNil(t, result.Match.PolicyID)
+	assert.Equal(t, policyID, *result.Match.PolicyID)
 	assert.Equal(t, DecisionMatched, result.Decision)
 	assert.Len(t, result.Candidates, 1)
 	assert.Equal(t, txID, result.Candidates[0].Transaction.ID)

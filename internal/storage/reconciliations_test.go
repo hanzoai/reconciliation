@@ -15,7 +15,7 @@ import (
 var (
 	r1 = &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             p1.ID,
+		PolicyID:             &p1.ID,
 		CreatedAt:            time.Now().Add(-1 * time.Hour),
 		ReconciledAtLedger:   time.Now().Add(-1 * time.Hour),
 		ReconciledAtPayments: time.Now().Add(-1 * time.Hour),
@@ -37,7 +37,7 @@ var (
 
 	r2 = &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             p1.ID,
+		PolicyID:             &p1.ID,
 		CreatedAt:            time.Now().Add(-2 * time.Hour),
 		ReconciledAtLedger:   time.Now().Add(-2 * time.Hour),
 		ReconciledAtPayments: time.Now().Add(-2 * time.Hour),
@@ -50,7 +50,7 @@ var (
 
 	r3 = &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             p2.ID,
+		PolicyID:             &p2.ID,
 		CreatedAt:            time.Now().Add(-3 * time.Hour),
 		ReconciledAtLedger:   time.Now().Add(-3 * time.Hour),
 		ReconciledAtPayments: time.Now().Add(-3 * time.Hour),

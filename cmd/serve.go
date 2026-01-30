@@ -23,7 +23,6 @@ import (
 	api_service "github.com/formancehq/reconciliation/internal/api/service"
 	"github.com/formancehq/reconciliation/internal/elasticsearch"
 	"github.com/formancehq/reconciliation/internal/ingestion"
-	"github.com/formancehq/reconciliation/internal/matching"
 	"github.com/formancehq/reconciliation/internal/reporting"
 	"github.com/formancehq/reconciliation/internal/storage"
 	"github.com/spf13/cobra"
@@ -79,7 +78,6 @@ func newServeCommand(version string) *cobra.Command {
 	cmd.Flags().StringSlice(kafkaTopicsFlag, []string{}, "Kafka topics to listen")
 	cmd.Flags().String(stackFlag, "", "Stack identifier")
 	cmd.Flags().Bool(workerFlag, false, "Enable worker mode (event listener)")
-	cmd.Flags().Int(matchingWorkersFlag, matching.DefaultMatchingWorkers, "Number of concurrent matching workers")
 	cmd.Flags().String(reportScheduleFlag, reporting.DefaultReportSchedule, "Cron schedule for daily report generation (e.g., '0 6 * * *' for 6:00 UTC)")
 
 	otlpmetrics.AddFlags(cmd.Flags())
@@ -101,6 +99,19 @@ func runServer(version string) func(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
+		osConfig := elasticsearch.ConfigFromEnv()
+		if err := osConfig.Validate(); err != nil {
+			return fmt.Errorf("opensearch is required for serve: %w", err)
+		}
+
+		stack, _ := cmd.Flags().GetString(stackFlag)
+		if stack == "" {
+			stack = elasticsearch.GetStackFromEnv()
+		}
+		if stack == "" {
+			return fmt.Errorf("stack identifier is required for serve (use --%s or %s env var)", stackFlag, elasticsearch.StackEnvVar)
+		}
+
 		options := make([]fx.Option, 0)
 		options = append(options, databaseOptions)
 
@@ -118,9 +129,8 @@ func runServer(version string) func(cmd *cobra.Command, args []string) error {
 
 		// Always include elasticsearch and shared ingestion modules
 		// because the API service depends on TransactionStore (OpenSearch)
-		stack, _ := cmd.Flags().GetString(stackFlag)
 		options = append(options,
-			elasticsearch.ModuleWithStack(stack),
+			elasticsearch.ModuleWithConfig(osConfig, elasticsearch.ISMConfigFromEnv(), stack),
 			ingestion.SharedIngestionModule(ingestion.SharedIngestionConfig{Stack: stack}),
 		)
 

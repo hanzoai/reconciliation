@@ -88,8 +88,10 @@ func TestPolicyFiltering_AnomaliesNotSharedBetweenPolicies(t *testing.T) {
 	anomaliesForPolicy1 := getAnomaliesByPolicyID(store, policy1ID)
 	assert.Len(t, anomaliesForPolicy1, 1, "Expected 1 anomaly for policy1")
 	if len(anomaliesForPolicy1) > 0 {
-		assert.Equal(t, policy1ID, anomaliesForPolicy1[0].PolicyID, "Anomaly should be associated with policy1")
-		assert.Equal(t, tx1ID, anomaliesForPolicy1[0].TransactionID, "Anomaly should reference tx1")
+		require.NotNil(t, anomaliesForPolicy1[0].PolicyID)
+		assert.Equal(t, policy1ID, *anomaliesForPolicy1[0].PolicyID, "Anomaly should be associated with policy1")
+		require.NotNil(t, anomaliesForPolicy1[0].TransactionID)
+		assert.Equal(t, tx1ID, *anomaliesForPolicy1[0].TransactionID, "Anomaly should reference tx1")
 	}
 
 	// Run matching for policy2 - should create anomaly for tx2 only
@@ -102,8 +104,10 @@ func TestPolicyFiltering_AnomaliesNotSharedBetweenPolicies(t *testing.T) {
 	anomaliesForPolicy2 := getAnomaliesByPolicyID(store, policy2ID)
 	assert.Len(t, anomaliesForPolicy2, 1, "Expected 1 anomaly for policy2")
 	if len(anomaliesForPolicy2) > 0 {
-		assert.Equal(t, policy2ID, anomaliesForPolicy2[0].PolicyID, "Anomaly should be associated with policy2")
-		assert.Equal(t, tx2ID, anomaliesForPolicy2[0].TransactionID, "Anomaly should reference tx2")
+		require.NotNil(t, anomaliesForPolicy2[0].PolicyID)
+		assert.Equal(t, policy2ID, *anomaliesForPolicy2[0].PolicyID, "Anomaly should be associated with policy2")
+		require.NotNil(t, anomaliesForPolicy2[0].TransactionID)
+		assert.Equal(t, tx2ID, *anomaliesForPolicy2[0].TransactionID, "Anomaly should reference tx2")
 	}
 
 	// Critical assertion: policy1's anomalies should NOT include policy2's anomalies
@@ -189,9 +193,13 @@ func TestPolicyFiltering_SameProviderDifferentPolicies(t *testing.T) {
 
 	// Both anomalies reference the same transaction but different policies
 	if len(anomaliesP1) > 0 && len(anomaliesP2) > 0 {
-		assert.Equal(t, txID, anomaliesP1[0].TransactionID)
-		assert.Equal(t, txID, anomaliesP2[0].TransactionID)
-		assert.NotEqual(t, anomaliesP1[0].PolicyID, anomaliesP2[0].PolicyID, "Anomalies should have different policy IDs")
+		require.NotNil(t, anomaliesP1[0].TransactionID)
+		require.NotNil(t, anomaliesP2[0].TransactionID)
+		assert.Equal(t, txID, *anomaliesP1[0].TransactionID)
+		assert.Equal(t, txID, *anomaliesP2[0].TransactionID)
+		require.NotNil(t, anomaliesP1[0].PolicyID)
+		require.NotNil(t, anomaliesP2[0].PolicyID)
+		assert.NotEqual(t, *anomaliesP1[0].PolicyID, *anomaliesP2[0].PolicyID, "Anomalies should have different policy IDs")
 	}
 }
 
@@ -199,7 +207,7 @@ func TestPolicyFiltering_SameProviderDifferentPolicies(t *testing.T) {
 func getAnomaliesByPolicyID(store *mockStoreForPolicyFilteringTest, policyID uuid.UUID) []*models.Anomaly {
 	var result []*models.Anomaly
 	for _, a := range store.anomalies {
-		if a.PolicyID == policyID {
+		if a.PolicyID != nil && *a.PolicyID == policyID {
 			result = append(result, a)
 		}
 	}
@@ -301,7 +309,7 @@ func (m *mockStoreForPolicyFilteringTest) ListAnomaliesByPolicy(ctx context.Cont
 	var data []models.Anomaly
 	if q.Options.Options.PolicyID != nil {
 		for _, a := range m.anomalies {
-			if a.PolicyID == *q.Options.Options.PolicyID {
+			if a.PolicyID != nil && *a.PolicyID == *q.Options.Options.PolicyID {
 				data = append(data, *a)
 			}
 		}

@@ -194,10 +194,11 @@ func TestNormalizeLedgerEvent_TransactionCreated(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, transactionCreatedEventJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 
 	assert.Equal(t, "12345", tx.ExternalID)
 	assert.Equal(t, int64(1000), tx.Amount)
@@ -213,10 +214,11 @@ func TestNormalizeLedgerEvent_MultiplePostings_AmountAggregated(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, multiplePostingsEventJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 
 	// Amount should be aggregated: 500 + 50 + 25 = 575
 	assert.Equal(t, int64(575), tx.Amount)
@@ -229,10 +231,11 @@ func TestNormalizeLedgerEvent_CompleteMetadata(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, completeMetadataEventJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 
 	// Verify metadata extraction
 	assert.Equal(t, "pay_full_metadata", tx.Metadata["payment_id"])
@@ -252,20 +255,20 @@ func TestNormalizeLedgerEvent_NonRelevantEvent_ReturnsNilNil(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, accountCreatedEventJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.NoError(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 }
 
 func TestNormalizeLedgerEvent_MalformedEvent_MissingPostings(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, malformedEventMissingPostingsJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.Error(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 	assert.Contains(t, err.Error(), "missing postings")
 }
 
@@ -273,10 +276,10 @@ func TestNormalizeLedgerEvent_MalformedEvent_MissingTimestamp(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, malformedEventMissingTimestampJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.Error(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 	assert.Contains(t, err.Error(), "missing timestamp")
 }
 
@@ -284,10 +287,10 @@ func TestNormalizeLedgerEvent_MalformedEvent_MissingID(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, malformedEventMissingIDJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.Error(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 	assert.Contains(t, err.Error(), "missing transaction id")
 }
 
@@ -295,10 +298,10 @@ func TestNormalizeLedgerEvent_MixedCurrencies_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	event := parseEventFromJSON(t, mixedCurrenciesEventJSON)
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.Error(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 	assert.Contains(t, err.Error(), "mixed currencies")
 }
 
@@ -310,10 +313,10 @@ func TestNormalizeLedgerEvent_EmptyPayload(t *testing.T) {
 		Payload: nil,
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.Error(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 	assert.Contains(t, err.Error(), "payload is nil")
 }
 
@@ -331,10 +334,10 @@ func TestNormalizeLedgerEvent_EmptyPostingsArray(t *testing.T) {
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	assert.Error(t, err)
-	assert.Nil(t, tx)
+	assert.Nil(t, txs)
 	assert.Contains(t, err.Error(), "postings array is empty")
 }
 
@@ -359,11 +362,11 @@ func TestNormalizeLedgerEvent_NumericTransactionID(t *testing.T) {
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
-	require.NoError(t, err)
-	require.NotNil(t, tx)
-	assert.Equal(t, "98765", tx.ExternalID)
+	require.Error(t, err)
+	assert.Nil(t, txs)
+	assert.Contains(t, err.Error(), "transaction id must be a string")
 }
 
 func TestNormalizeLedgerEvent_StringAmount(t *testing.T) {
@@ -387,10 +390,11 @@ func TestNormalizeLedgerEvent_StringAmount(t *testing.T) {
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 	assert.Equal(t, int64(12345), tx.Amount)
 }
 
@@ -415,10 +419,11 @@ func TestNormalizeLedgerEvent_RFC3339NanoTimestamp(t *testing.T) {
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 	assert.Equal(t, 2024, tx.OccurredAt.Year())
 	assert.Equal(t, 1, int(tx.OccurredAt.Month()))
 	assert.Equal(t, 15, tx.OccurredAt.Day())
@@ -444,10 +449,11 @@ func TestNormalizeLedgerEvent_PayloadWithoutTransactionWrapper(t *testing.T) {
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 	assert.Equal(t, "direct_payload_001", tx.ExternalID)
 }
 
@@ -507,10 +513,11 @@ func TestNormalizeLedgerEvent_TransactionsArrayFormat(t *testing.T) {
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
 	require.NoError(t, err)
-	require.NotNil(t, tx)
+	require.Len(t, txs, 1)
+	tx := txs[0]
 
 	// Verify the transaction is correctly normalized
 	assert.Equal(t, "orphan-ledger-0", tx.ExternalID)
@@ -530,7 +537,7 @@ func TestNormalizeLedgerEvent_TransactionsArrayFormat(t *testing.T) {
 }
 
 // TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions tests that batch
-// transactions are rejected with an explicit error.
+// transactions are normalized individually.
 func TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions(t *testing.T) {
 	ctx := context.Background()
 
@@ -567,9 +574,10 @@ func TestNormalizeLedgerEvent_TransactionsArrayFormat_MultipleTransactions(t *te
 		},
 	}
 
-	tx, err := NormalizeLedgerEvent(ctx, event)
+	txs, err := NormalizeLedgerEvent(ctx, event)
 
-	require.Error(t, err)
-	assert.Nil(t, tx)
-	assert.Contains(t, err.Error(), "batch transactions are not supported")
+	require.NoError(t, err)
+	require.Len(t, txs, 2)
+	assert.Equal(t, "tx-first", txs[0].ExternalID)
+	assert.Equal(t, "tx-second", txs[1].ExternalID)
 }

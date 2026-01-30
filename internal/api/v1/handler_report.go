@@ -35,10 +35,15 @@ func GetLatestPolicyReportHandler(b backend.Backend) http.HandlerFunc {
 			return
 		}
 
+		policyIDStr := ""
+		if report.PolicyID != nil {
+			policyIDStr = report.PolicyID.String()
+		}
+
 		// Check Accept header for CSV format
 		accept := r.Header.Get("Accept")
 		if accept == "text/csv" {
-			renderReportCSV(w, report.ID.String(), report.PolicyID.String(), report.PeriodStart, report.PeriodEnd,
+			renderReportCSV(w, report.ID.String(), policyIDStr, report.PeriodStart, report.PeriodEnd,
 				report.TotalTransactions, report.MatchedCount, report.MatchRate, report.AnomaliesByType, report.GeneratedAt)
 			return
 		}
@@ -46,7 +51,7 @@ func GetLatestPolicyReportHandler(b backend.Backend) http.HandlerFunc {
 		// Default to JSON response
 		data := &reportResponse{
 			ID:                report.ID.String(),
-			PolicyID:          report.PolicyID.String(),
+			PolicyID:          policyIDStr,
 			PeriodStart:       report.PeriodStart,
 			PeriodEnd:         report.PeriodEnd,
 			TotalTransactions: report.TotalTransactions,

@@ -35,6 +35,7 @@ func TestGetLatestPolicyReport(t *testing.T) {
 	t.Parallel()
 
 	policyID := "00000000-0000-0000-0000-000000000001"
+	policyUUID := uuid.MustParse(policyID)
 	reportID := "00000000-0000-0000-0000-000000000010"
 	baseTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 	periodStart := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -56,7 +57,7 @@ func TestGetLatestPolicyReport(t *testing.T) {
 			policyID: policyID,
 			serviceResponse: &models.Report{
 				ID:                uuid.MustParse(reportID),
-				PolicyID:          uuid.MustParse(policyID),
+				PolicyID:          &policyUUID,
 				PeriodStart:       periodStart,
 				PeriodEnd:         periodEnd,
 				TotalTransactions: 100,
@@ -76,7 +77,7 @@ func TestGetLatestPolicyReport(t *testing.T) {
 			acceptHeader: "text/csv",
 			serviceResponse: &models.Report{
 				ID:                uuid.MustParse(reportID),
-				PolicyID:          uuid.MustParse(policyID),
+				PolicyID:          &policyUUID,
 				PeriodStart:       periodStart,
 				PeriodEnd:         periodEnd,
 				TotalTransactions: 100,
@@ -199,6 +200,7 @@ func TestGetLatestPolicyReportMultipleReports(t *testing.T) {
 	t.Parallel()
 
 	policyID := "00000000-0000-0000-0000-000000000001"
+	policyUUID := uuid.MustParse(policyID)
 	reportID := "00000000-0000-0000-0000-000000000020"
 	newerTime := time.Date(2024, 2, 15, 10, 0, 0, 0, time.UTC)
 	periodStart := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
@@ -213,7 +215,7 @@ func TestGetLatestPolicyReportMultipleReports(t *testing.T) {
 		// The service should return the most recent report
 		mostRecentReport := &models.Report{
 			ID:                uuid.MustParse(reportID),
-			PolicyID:          uuid.MustParse(policyID),
+			PolicyID:          &policyUUID,
 			PeriodStart:       periodStart,
 			PeriodEnd:         periodEnd,
 			TotalTransactions: 200,
@@ -254,6 +256,7 @@ func TestGetLatestPolicyReportCSVFormat(t *testing.T) {
 	t.Parallel()
 
 	policyID := "00000000-0000-0000-0000-000000000001"
+	policyUUID := uuid.MustParse(policyID)
 	reportID := "00000000-0000-0000-0000-000000000010"
 	baseTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 	periodStart := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -266,7 +269,7 @@ func TestGetLatestPolicyReportCSVFormat(t *testing.T) {
 
 		report := &models.Report{
 			ID:                uuid.MustParse(reportID),
-			PolicyID:          uuid.MustParse(policyID),
+			PolicyID:          &policyUUID,
 			PeriodStart:       periodStart,
 			PeriodEnd:         periodEnd,
 			TotalTransactions: 100,
@@ -324,7 +327,7 @@ func TestGetLatestPolicyReportCSVFormat(t *testing.T) {
 
 		report := &models.Report{
 			ID:                uuid.MustParse(reportID),
-			PolicyID:          uuid.MustParse(policyID),
+			PolicyID:          &policyUUID,
 			PeriodStart:       periodStart,
 			PeriodEnd:         periodEnd,
 			TotalTransactions: 50,

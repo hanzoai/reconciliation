@@ -33,7 +33,7 @@ func createTestPolicyForMatch(t *testing.T, store *Storage) *models.Policy {
 func createTestMatch(policyID uuid.UUID, ledgerTxIDs, paymentTxIDs []uuid.UUID) *models.Match {
 	return &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               policyID,
+		PolicyID:               &policyID,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  0.95,
@@ -70,7 +70,9 @@ func TestMatchCreate(t *testing.T) {
 		fetched, err := store.GetMatchByID(context.Background(), match.ID)
 		require.NoError(t, err)
 		require.Equal(t, match.ID, fetched.ID)
-		require.Equal(t, match.PolicyID, fetched.PolicyID)
+		require.NotNil(t, match.PolicyID)
+		require.NotNil(t, fetched.PolicyID)
+		require.Equal(t, *match.PolicyID, *fetched.PolicyID)
 		require.Equal(t, match.Score, fetched.Score)
 		require.Equal(t, match.Decision, fetched.Decision)
 
@@ -177,7 +179,8 @@ func TestMatchListByPolicy(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, cursor.Data, 3)
 		for _, m := range cursor.Data {
-			require.Equal(t, policy.ID, m.PolicyID)
+			require.NotNil(t, m.PolicyID)
+			require.Equal(t, policy.ID, *m.PolicyID)
 		}
 	})
 
@@ -304,7 +307,9 @@ func TestMatchUpdateDecision(t *testing.T) {
 		require.Equal(t, models.DecisionManual, fetched.Decision)
 
 		// Verify other fields unchanged
-		require.Equal(t, match.PolicyID, fetched.PolicyID)
+		require.NotNil(t, match.PolicyID)
+		require.NotNil(t, fetched.PolicyID)
+		require.Equal(t, *match.PolicyID, *fetched.PolicyID)
 		require.Equal(t, match.Score, fetched.Score)
 		require.Equal(t, match.Explanation.Reason, fetched.Explanation.Reason)
 	})

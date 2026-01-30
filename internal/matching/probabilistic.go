@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/formancehq/reconciliation/internal/elasticsearch"
@@ -147,32 +148,42 @@ func (m *ProbabilisticMatcher) buildSearchQuery(
 
 	// Build the bool query with must filters
 	// Note: policy_id is no longer stored in ES - filtering by policy happens at the DB level
+	mustClauses := []map[string]interface{}{
+		// Filter by opposite side
+		{
+			"term": map[string]interface{}{
+				"side": string(oppositeSide),
+			},
+		},
+		// Filter by time window
+		{
+			"range": map[string]interface{}{
+				"occurred_at": map[string]interface{}{
+					"gte": minTime.Format(time.RFC3339),
+					"lte": maxTime.Format(time.RFC3339),
+				},
+			},
+		},
+		// Filter by same currency
+		{
+			"term": map[string]interface{}{
+				"currency": transaction.Currency,
+			},
+		},
+	}
+
+	if expectedProvider, ok := expectedProviderForPolicySide(m.policy, oppositeSide); ok {
+		mustClauses = append(mustClauses, map[string]interface{}{
+			"term": map[string]interface{}{
+				"provider": expectedProvider,
+			},
+		})
+	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": []map[string]interface{}{
-					// Filter by opposite side
-					{
-						"term": map[string]interface{}{
-							"side": string(oppositeSide),
-						},
-					},
-					// Filter by time window
-					{
-						"range": map[string]interface{}{
-							"occurred_at": map[string]interface{}{
-								"gte": minTime.Format(time.RFC3339),
-								"lte": maxTime.Format(time.RFC3339),
-							},
-						},
-					},
-					// Filter by same currency
-					{
-						"term": map[string]interface{}{
-							"currency": transaction.Currency,
-						},
-					},
-				},
+				"must": mustClauses,
 			},
 		},
 		"size": m.config.MaxCandidates * 2, // Fetch more to allow for post-scoring filtering
@@ -275,7 +286,7 @@ func (m *ProbabilisticMatcher) calculateScore(
 
 	// Calculate metadata score
 	if weights.Metadata > 0 && source.Metadata != nil && candidate.Metadata != nil {
-		metadataScore := m.calculateMetadataScore(source, candidate)
+		metadataScore := m.calculateMetadataScore(source, candidate, scoringConfig)
 		totalScore += metadataScore * weights.Metadata
 		totalWeight += weights.Metadata
 		if metadataScore > 0 {
@@ -347,6 +358,7 @@ func (m *ProbabilisticMatcher) calculateDateScore(
 func (m *ProbabilisticMatcher) calculateMetadataScore(
 	source *models.Transaction,
 	candidate *models.Transaction,
+	scoringConfig *models.ScoringConfig,
 ) float64 {
 	if len(source.Metadata) == 0 {
 		return 0
@@ -355,11 +367,31 @@ func (m *ProbabilisticMatcher) calculateMetadataScore(
 	matchCount := 0
 	totalFields := 0
 
-	for key, sourceVal := range source.Metadata {
-		totalFields++
-		if candidateVal, ok := candidate.Metadata[key]; ok {
-			if fmt.Sprintf("%v", sourceVal) == fmt.Sprintf("%v", candidateVal) {
-				matchCount++
+	fields := []string{}
+	if scoringConfig != nil {
+		fields = scoringConfig.MetadataFields
+	}
+
+	if len(fields) == 0 {
+		for key, sourceVal := range source.Metadata {
+			totalFields++
+			if candidateVal, ok := candidate.Metadata[key]; ok {
+				if metadataValuesEqual(sourceVal, candidateVal, scoringConfig != nil && scoringConfig.MetadataCaseInsensitive) {
+					matchCount++
+				}
+			}
+		}
+	} else {
+		for _, key := range fields {
+			sourceVal, ok := source.Metadata[key]
+			if !ok {
+				continue
+			}
+			totalFields++
+			if candidateVal, ok := candidate.Metadata[key]; ok {
+				if metadataValuesEqual(sourceVal, candidateVal, scoringConfig != nil && scoringConfig.MetadataCaseInsensitive) {
+					matchCount++
+				}
 			}
 		}
 	}
@@ -369,6 +401,15 @@ func (m *ProbabilisticMatcher) calculateMetadataScore(
 	}
 
 	return float64(matchCount) / float64(totalFields)
+}
+
+func metadataValuesEqual(a, b interface{}, caseInsensitive bool) bool {
+	aStr := fmt.Sprintf("%v", a)
+	bStr := fmt.Sprintf("%v", b)
+	if caseInsensitive {
+		return strings.EqualFold(aStr, bStr)
+	}
+	return aStr == bStr
 }
 
 // getScoringConfig returns the policy's scoring config with defaults.
@@ -476,7 +517,7 @@ func (m *ProbabilisticMatcher) createMatch(
 
 	return &models.Match{
 		ID:                     uuid.New(),
-		PolicyID:               m.policy.ID,
+		PolicyID:               &m.policy.ID,
 		LedgerTransactionIDs:   ledgerTxIDs,
 		PaymentsTransactionIDs: paymentTxIDs,
 		Score:                  candidate.Score,

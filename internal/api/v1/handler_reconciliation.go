@@ -85,7 +85,7 @@ func GetReconciliationHandler(b backend.Backend) http.HandlerFunc {
 
 		data := &reconciliationResponse{
 			ID:                   res.ID.String(),
-			PolicyID:             res.PolicyID.String(),
+			PolicyID:             "",
 			CreatedAt:            res.CreatedAt,
 			ReconciledAtLedger:   res.ReconciledAtLedger,
 			ReconciledAtPayments: res.ReconciledAtPayments,
@@ -94,6 +94,9 @@ func GetReconciliationHandler(b backend.Backend) http.HandlerFunc {
 			LedgerBalances:       res.LedgerBalances,
 			DriftBalances:        res.DriftBalances,
 			Error:                res.Error,
+		}
+		if res.PolicyID != nil {
+			data.PolicyID = res.PolicyID.String()
 		}
 
 		api.Ok(w, data)
