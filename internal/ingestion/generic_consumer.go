@@ -42,6 +42,7 @@ type GenericConsumer struct {
 	mu                 sync.RWMutex
 	running            atomic.Bool
 	healthy            atomic.Bool
+	ready              atomic.Bool
 	lastErr            error
 	lastEventTimestamp time.Time
 	cancel             context.CancelFunc
@@ -126,8 +127,9 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	c.cancel = cancel
 	c.lastErr = nil
 	c.mu.Unlock()
-	c.running.Store(true)
-	c.healthy.Store(true)
+	c.running.Store(false)
+	c.healthy.Store(false)
+	c.ready.Store(false)
 	// Clear any stale fatal error from previous runs.
 	select {
 	case <-c.fatalErrCh:
@@ -152,6 +154,9 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		c.mu.Unlock()
 		return err
 	}
+
+	c.running.Store(true)
+	c.healthy.Store(true)
 
 	logger.WithFields(map[string]interface{}{
 		"topic": c.config.Topic,
@@ -200,6 +205,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 // consumeMessages processes messages from the channel.
 func (c *GenericConsumer) consumeMessages(ctx context.Context, messages <-chan *message.Message) {
 	logger := logging.FromContext(ctx)
+	c.ready.Store(true)
+	defer c.ready.Store(false)
 
 	for {
 		select {
@@ -346,6 +353,9 @@ func (c *GenericConsumer) Health() error {
 			return c.lastErr
 		}
 		return errors.New("consumer is unhealthy")
+	}
+	if !c.ready.Load() {
+		return errors.New("consumer is not ready")
 	}
 	return nil
 }
