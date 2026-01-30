@@ -236,6 +236,7 @@ func TestUnifiedIngestionHealthCheck(t *testing.T) {
 		consumer := &GenericConsumer{}
 		consumer.running.Store(true)
 		consumer.healthy.Store(true)
+		consumer.ready.Store(true)
 		consumer.SetLastEventTimestamp(time.Now())
 
 		service := &UnifiedIngestionService{

@@ -509,7 +509,6 @@ func TestUnifiedEventHandler_Handle_ErrorCases(t *testing.T) {
 	})
 }
 
-
 func TestUnifiedIngestionService(t *testing.T) {
 	t.Run("service delegates to consumer", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -520,6 +519,7 @@ func TestUnifiedIngestionService(t *testing.T) {
 		consumer := &GenericConsumer{}
 		consumer.running.Store(true)
 		consumer.healthy.Store(true)
+		consumer.ready.Store(true)
 
 		config := UnifiedIngestionServiceConfig{}
 
