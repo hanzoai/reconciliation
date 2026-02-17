@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -85,14 +86,12 @@ func (s *Service) CreatePolicy(ctx context.Context, req *CreatePolicyRequest) (*
 }
 
 type minBufferConfig struct {
-	BufferType  string                          `json:"bufferType"`
-	BufferValue int64                           `json:"bufferValue"`
-	PerAsset    map[string]minBufferAssetConfig `json:"perAsset"`
+	Assets map[string]minBufferAssetRule `json:"assets"`
 }
 
-type minBufferAssetConfig struct {
-	BufferType  string `json:"bufferType"`
-	BufferValue int64  `json:"bufferValue"`
+type minBufferAssetRule struct {
+	BPS      *int64 `json:"bps,omitempty"`
+	Absolute *int64 `json:"absolute,omitempty"`
 }
 
 func parseMinBufferConfig(raw map[string]interface{}) (*minBufferConfig, error) {
@@ -105,36 +104,47 @@ func parseMinBufferConfig(raw map[string]interface{}) (*minBufferConfig, error) 
 		return nil, errors.Wrap(err, "invalid assertionConfig")
 	}
 
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	dec.DisallowUnknownFields()
+
 	var cfg minBufferConfig
-	if err := json.Unmarshal(payload, &cfg); err != nil {
+	if err := dec.Decode(&cfg); err != nil {
 		return nil, errors.Wrap(err, "invalid assertionConfig")
 	}
 
-	if err := validateBuffer(cfg.BufferType, cfg.BufferValue); err != nil {
-		return nil, err
+	if len(cfg.Assets) == 0 {
+		return nil, errors.New("assertionConfig.assets must not be empty")
 	}
 
-	for asset, assetCfg := range cfg.PerAsset {
+	for asset, assetCfg := range cfg.Assets {
 		if asset == "" {
-			return nil, errors.New("asset key cannot be empty in assertionConfig.perAsset")
+			return nil, errors.New("asset key cannot be empty in assertionConfig.assets")
 		}
-		if err := validateBuffer(assetCfg.BufferType, assetCfg.BufferValue); err != nil {
-			return nil, fmt.Errorf("invalid perAsset config for %s: %w", asset, err)
+		if err := validateMinBufferRule(asset, assetCfg); err != nil {
+			return nil, err
 		}
 	}
 
 	return &cfg, nil
 }
 
-func validateBuffer(bufferType string, bufferValue int64) error {
-	switch bufferType {
-	case "ABSOLUTE", "BPS":
-	default:
-		return errors.New("bufferType must be ABSOLUTE or BPS")
+func validateMinBufferRule(asset string, rule minBufferAssetRule) error {
+	hasBPS := rule.BPS != nil
+	hasAbsolute := rule.Absolute != nil
+	if hasBPS == hasAbsolute {
+		return fmt.Errorf("invalid rule for %s: exactly one of bps or absolute must be set", asset)
 	}
 
-	if bufferValue < 0 {
-		return errors.New("bufferValue must be >= 0")
+	if asset == "*" && hasAbsolute {
+		return errors.New("invalid rule for *: only bps is allowed")
+	}
+
+	if hasBPS && *rule.BPS < 0 {
+		return fmt.Errorf("invalid rule for %s: bps must be >= 0", asset)
+	}
+
+	if hasAbsolute && *rule.Absolute < 0 {
+		return fmt.Errorf("invalid rule for %s: absolute must be >= 0", asset)
 	}
 
 	return nil

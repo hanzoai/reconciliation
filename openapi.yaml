@@ -334,6 +334,17 @@ components:
         assertionConfig:
           type: object
           additionalProperties: true
+          description: |
+            Used when assertionMode is MIN_BUFFER.
+            Expected shape:
+            {
+              "assets": {
+                "*": {"bps": 100},
+                "USD/2": {"absolute": 1000},
+                "EUR/2": {"bps": 80}
+              }
+            }
+            Asset keys use UMN notation. Exact asset match is used first, then "*" as fallback if present.
     PolicyResponse:
       type: object
       required:
@@ -398,6 +409,7 @@ components:
         assertionConfig:
           type: object
           additionalProperties: true
+          description: Policy assertion configuration persisted with the policy.
     AssertionMode:
       type: string
       enum:

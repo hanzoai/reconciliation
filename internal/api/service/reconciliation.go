@@ -187,27 +187,28 @@ func requiredBufferForAsset(cfg *minBufferConfig, asset string, ledgerBalance *b
 		return nil, errors.New("missing assertionConfig for MIN_BUFFER")
 	}
 
-	bufferType := cfg.BufferType
-	bufferValue := cfg.BufferValue
-	if assetCfg, ok := cfg.PerAsset[asset]; ok {
-		bufferType = assetCfg.BufferType
-		bufferValue = assetCfg.BufferValue
+	rule, ok := cfg.Assets[asset]
+	if !ok {
+		rule, ok = cfg.Assets["*"]
+		if !ok {
+			return nil, fmt.Errorf("missing MIN_BUFFER rule for asset %s", asset)
+		}
 	}
 
-	switch bufferType {
-	case "ABSOLUTE":
-		return big.NewInt(bufferValue), nil
-	case "BPS":
+	if rule.Absolute != nil {
+		return big.NewInt(*rule.Absolute), nil
+	}
+	if rule.BPS != nil {
 		var exposure big.Int
 		exposure.Abs(ledgerBalance)
 
 		var required big.Int
-		required.Mul(&exposure, big.NewInt(bufferValue))
+		required.Mul(&exposure, big.NewInt(*rule.BPS))
 		required.Div(&required, big.NewInt(10000))
 		return &required, nil
-	default:
-		return nil, errors.New("bufferType must be ABSOLUTE or BPS")
 	}
+
+	return nil, fmt.Errorf("invalid MIN_BUFFER rule for asset %s", asset)
 }
 
 // Missing asset should be considered as asset with balance 0
