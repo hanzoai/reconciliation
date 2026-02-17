@@ -56,6 +56,25 @@ paths:
         - Authorization:
             - reconciliation:read
   /policies/{policyID}:
+    delete:
+      summary: Archive a policy (deprecated alias)
+      operationId: deletePolicy
+      deprecated: true
+      tags:
+        - reconciliation.v1
+      description: |
+        Deprecated backward-compatible alias for archiving a policy.
+        Use `POST /policies/{policyID}/archive` instead.
+      parameters:
+        - $ref: '#/components/parameters/PolicyID'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+      security:
+        - Authorization:
+            - reconciliation:write
     put:
       summary: Update a policy
       tags:
