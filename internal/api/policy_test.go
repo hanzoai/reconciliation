@@ -192,6 +192,8 @@ func TestArchivePolicy(t *testing.T) {
 	type testCase struct {
 		name               string
 		policyID           string
+		method             string
+		path               string
 		expectedStatusCode int
 		serviceError       error
 		expectedErrorCode  string
@@ -201,10 +203,20 @@ func TestArchivePolicy(t *testing.T) {
 		{
 			name:     "nominal",
 			policyID: "00000000-0000-0000-0000-000000000000",
+			method:   http.MethodPost,
+			path:     "/archive",
+		},
+		{
+			name:     "nominal deprecated delete alias",
+			policyID: "00000000-0000-0000-0000-000000000000",
+			method:   http.MethodDelete,
+			path:     "",
 		},
 		{
 			name:               "service error validation",
 			policyID:           "00000000-0000-0000-0000-000000000000",
+			method:             http.MethodPost,
+			path:               "/archive",
 			serviceError:       service.ErrValidation,
 			expectedStatusCode: http.StatusBadRequest,
 			expectedErrorCode:  ErrValidation,
@@ -212,6 +224,8 @@ func TestArchivePolicy(t *testing.T) {
 		{
 			name:               "service error invalid id",
 			policyID:           "invalid",
+			method:             http.MethodPost,
+			path:               "/archive",
 			serviceError:       service.ErrInvalidID,
 			expectedStatusCode: http.StatusBadRequest,
 			expectedErrorCode:  ErrInvalidID,
@@ -219,6 +233,8 @@ func TestArchivePolicy(t *testing.T) {
 		{
 			name:               "storage error not found",
 			policyID:           "invalid",
+			method:             http.MethodPost,
+			path:               "/archive",
 			serviceError:       storage.ErrNotFound,
 			expectedStatusCode: http.StatusNotFound,
 			expectedErrorCode:  sharedapi.ErrorCodeNotFound,
@@ -226,6 +242,8 @@ func TestArchivePolicy(t *testing.T) {
 		{
 			name:               "service error other error",
 			policyID:           "00000000-0000-0000-0000-000000000000",
+			method:             http.MethodPost,
+			path:               "/archive",
 			serviceError:       errors.New("some error"),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedErrorCode:  sharedapi.ErrorInternal,
@@ -239,6 +257,9 @@ func TestArchivePolicy(t *testing.T) {
 
 			if testCase.expectedStatusCode == 0 {
 				testCase.expectedStatusCode = http.StatusNoContent
+			}
+			if testCase.method == "" {
+				testCase.method = http.MethodPost
 			}
 
 			backend, mockService := newTestingBackend(t)
@@ -257,7 +278,7 @@ func TestArchivePolicy(t *testing.T) {
 				Debug: testing.Verbose(),
 			}, auth.NewNoAuth(), nil)
 
-			req := httptest.NewRequest(http.MethodPost, "/policies/"+testCase.policyID+"/archive", nil)
+			req := httptest.NewRequest(testCase.method, "/policies/"+testCase.policyID+testCase.path, nil)
 			rec := httptest.NewRecorder()
 
 			router.ServeHTTP(rec, req)
