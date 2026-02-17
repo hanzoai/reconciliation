@@ -52,7 +52,7 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(200),
+					"EUR": big.NewInt(0),
 				},
 				Error: "",
 			},
@@ -114,7 +114,7 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(0),
+					"EUR": big.NewInt(200),
 				},
 				Error: "balance drift for asset EUR",
 			},
@@ -173,7 +173,7 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(0),
+					"EUR": big.NewInt(200),
 				},
 				Error: "missing asset EUR in paymentBalances",
 			},
@@ -202,7 +202,7 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(200),
+					"EUR": big.NewInt(0),
 				},
 				Error: "missing asset EUR in paymentBalances",
 			},
@@ -277,7 +277,7 @@ func TestReconciliation(t *testing.T) {
 				AssertionMode: models.AssertionModeMinBuffer,
 				AssertionConfig: map[string]interface{}{
 					"assets": map[string]interface{}{
-						"*": map[string]interface{}{
+						"USD": map[string]interface{}{
 							"absolute": 25,
 						},
 					},
@@ -370,7 +370,7 @@ func TestReconciliation(t *testing.T) {
 				AssertionConfig: map[string]interface{}{
 					"assets": map[string]interface{}{
 						"USD/2": map[string]interface{}{
-							"bps": 100,
+							"bps": 0,
 						},
 					},
 				},
