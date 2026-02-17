@@ -88,10 +88,27 @@ func (s *mockSDKFormanceClient) V2GetBalancesAggregated(ctx context.Context, req
 }
 
 type mockStore struct {
+	policy *models.Policy
 }
 
-func newMockStore() *mockStore {
-	return &mockStore{}
+func newMockStore(policy ...*models.Policy) *mockStore {
+	p := &models.Policy{
+		ID:              uuid.New(),
+		CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+		Name:            "test",
+		LedgerName:      "default",
+		LedgerQuery:     map[string]interface{}{},
+		PaymentsPoolID:  uuid.New(),
+		AssertionMode:   models.AssertionModeCoverage,
+		AssertionConfig: map[string]interface{}{},
+	}
+	if len(policy) > 0 && policy[0] != nil {
+		p = policy[0]
+	}
+
+	return &mockStore{
+		policy: p,
+	}
 }
 
 func (s *mockStore) Ping() error {
@@ -107,14 +124,9 @@ func (s *mockStore) DeletePolicy(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *mockStore) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy, error) {
-	return &models.Policy{
-		ID:             id,
-		CreatedAt:      time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-		Name:           "test",
-		LedgerName:     "default",
-		LedgerQuery:    map[string]interface{}{},
-		PaymentsPoolID: uuid.New(),
-	}, nil
+	policy := *s.policy
+	policy.ID = id
+	return &policy, nil
 }
 
 func (s *mockStore) ListPolicies(ctx context.Context, q storage.GetPoliciesQuery) (*bunpaginate.Cursor[models.Policy], error) {

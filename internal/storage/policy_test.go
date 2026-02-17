@@ -22,7 +22,9 @@ var (
 				"account": "test",
 			},
 		},
-		PaymentsPoolID: uuid.New(),
+		PaymentsPoolID:  uuid.New(),
+		AssertionMode:   models.AssertionModeCoverage,
+		AssertionConfig: map[string]interface{}{},
 	}
 
 	p2 = &models.Policy{
@@ -35,7 +37,9 @@ var (
 				"account": "test",
 			},
 		},
-		PaymentsPoolID: uuid.New(),
+		PaymentsPoolID:  uuid.New(),
+		AssertionMode:   models.AssertionModeCoverage,
+		AssertionConfig: map[string]interface{}{},
 	}
 
 	p3 = &models.Policy{
@@ -48,7 +52,9 @@ var (
 				"account": "test",
 			},
 		},
-		PaymentsPoolID: uuid.New(),
+		PaymentsPoolID:  uuid.New(),
+		AssertionMode:   models.AssertionModeCoverage,
+		AssertionConfig: map[string]interface{}{},
 	}
 )
 

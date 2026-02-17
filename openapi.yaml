@@ -329,6 +329,11 @@ components:
         paymentsPoolID:
           type: string
           example: XXX
+        assertionMode:
+          $ref: '#/components/schemas/AssertionMode'
+        assertionConfig:
+          type: object
+          additionalProperties: true
     PolicyResponse:
       type: object
       required:
@@ -366,6 +371,8 @@ components:
         - ledgerName
         - ledgerQuery
         - paymentsPoolID
+        - assertionMode
+        - assertionConfig
       properties:
         id:
           type: string
@@ -386,6 +393,17 @@ components:
         paymentsPoolID:
           type: string
           example: XXX
+        assertionMode:
+          $ref: '#/components/schemas/AssertionMode'
+        assertionConfig:
+          type: object
+          additionalProperties: true
+    AssertionMode:
+      type: string
+      enum:
+        - COVERAGE
+        - EQUALITY
+        - MIN_BUFFER
     Reconciliation:
       type: object
       required:
