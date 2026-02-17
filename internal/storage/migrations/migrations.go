@@ -72,5 +72,14 @@ func registerMigrations(migrator *migrations.Migrator) {
 				return err
 			},
 		},
+		migrations.Migration{
+			Up: func(tx bun.Tx) error {
+				_, err := tx.Exec(`
+					ALTER TABLE reconciliations.policy ADD COLUMN assertion_mode text NOT NULL DEFAULT 'COVERAGE';
+					ALTER TABLE reconciliations.policy ADD COLUMN assertion_config jsonb NOT NULL DEFAULT '{}'::jsonb;
+				`)
+				return err
+			},
+		},
 	)
 }

@@ -20,6 +20,7 @@ func TestReconciliation(t *testing.T) {
 		paymentsVersion  string
 		ledgerBalances   map[string]*big.Int
 		paymentsBalances map[string]*big.Int
+		policy           *models.Policy
 		expectedReco     *models.Reconciliation
 		expectedError    bool
 	}
@@ -242,6 +243,115 @@ func TestReconciliation(t *testing.T) {
 				Error: "",
 			},
 		},
+		{
+			name:            "equality mode fails on positive drift",
+			ledgerVersion:   "v2.0.0-beta.1",
+			paymentsVersion: "v1.0.0-rc.4",
+			ledgerBalances: map[string]*big.Int{
+				"USD": big.NewInt(200),
+			},
+			paymentsBalances: map[string]*big.Int{
+				"USD": big.NewInt(-100),
+			},
+			policy: &models.Policy{
+				AssertionMode:   models.AssertionModeEquality,
+				AssertionConfig: map[string]interface{}{},
+			},
+			expectedReco: &models.Reconciliation{
+				Status: models.ReconciliationNotOK,
+				LedgerBalances: map[string]*big.Int{
+					"USD": big.NewInt(200),
+				},
+				PaymentsBalances: map[string]*big.Int{
+					"USD": big.NewInt(-100),
+				},
+				DriftBalances: map[string]*big.Int{
+					"USD": big.NewInt(100),
+				},
+				Error: "equality drift for asset USD",
+			},
+		},
+		{
+			name:            "min buffer mode absolute passes",
+			ledgerVersion:   "v2.0.0-beta.1",
+			paymentsVersion: "v1.0.0-rc.4",
+			ledgerBalances: map[string]*big.Int{
+				"USD": big.NewInt(200),
+			},
+			paymentsBalances: map[string]*big.Int{
+				"USD": big.NewInt(-150),
+			},
+			policy: &models.Policy{
+				AssertionMode: models.AssertionModeMinBuffer,
+				AssertionConfig: map[string]interface{}{
+					"bufferType":  "ABSOLUTE",
+					"bufferValue": 25,
+				},
+			},
+			expectedReco: &models.Reconciliation{
+				Status: models.ReconciliationOK,
+				LedgerBalances: map[string]*big.Int{
+					"USD": big.NewInt(200),
+				},
+				PaymentsBalances: map[string]*big.Int{
+					"USD": big.NewInt(-150),
+				},
+				DriftBalances: map[string]*big.Int{
+					"USD": big.NewInt(50),
+				},
+				Error: "",
+			},
+		},
+		{
+			name:            "min buffer mode bps fails",
+			ledgerVersion:   "v2.0.0-beta.1",
+			paymentsVersion: "v1.0.0-rc.4",
+			ledgerBalances: map[string]*big.Int{
+				"USD": big.NewInt(10000),
+			},
+			paymentsBalances: map[string]*big.Int{
+				"USD": big.NewInt(-9500),
+			},
+			policy: &models.Policy{
+				AssertionMode: models.AssertionModeMinBuffer,
+				AssertionConfig: map[string]interface{}{
+					"bufferType":  "BPS",
+					"bufferValue": 600,
+				},
+			},
+			expectedReco: &models.Reconciliation{
+				Status: models.ReconciliationNotOK,
+				LedgerBalances: map[string]*big.Int{
+					"USD": big.NewInt(10000),
+				},
+				PaymentsBalances: map[string]*big.Int{
+					"USD": big.NewInt(-9500),
+				},
+				DriftBalances: map[string]*big.Int{
+					"USD": big.NewInt(500),
+				},
+				Error: "min buffer drift for asset USD",
+			},
+		},
+		{
+			name:            "min buffer invalid config returns error",
+			ledgerVersion:   "v2.0.0-beta.1",
+			paymentsVersion: "v1.0.0-rc.4",
+			ledgerBalances: map[string]*big.Int{
+				"USD": big.NewInt(100),
+			},
+			paymentsBalances: map[string]*big.Int{
+				"USD": big.NewInt(-100),
+			},
+			policy: &models.Policy{
+				AssertionMode: models.AssertionModeMinBuffer,
+				AssertionConfig: map[string]interface{}{
+					"bufferType":  "UNKNOWN",
+					"bufferValue": 1,
+				},
+			},
+			expectedError: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -249,7 +359,7 @@ func TestReconciliation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := NewService(newMockStore(), newMockSDKFormanceClient(
+			s := NewService(newMockStore(tc.policy), newMockSDKFormanceClient(
 				tc.ledgerVersion,
 				tc.ledgerBalances,
 				tc.paymentsVersion,

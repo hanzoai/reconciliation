@@ -114,22 +114,26 @@ func TestCreatePolicy(t *testing.T) {
 			var policyServiceResponse models.Policy
 			if testCase.req != nil {
 				policyServiceResponse = models.Policy{
-					ID:             uuid.New(),
-					CreatedAt:      time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-					Name:           testCase.req.Name,
-					LedgerName:     testCase.req.LedgerName,
-					LedgerQuery:    testCase.req.LedgerQuery,
-					PaymentsPoolID: uuid.MustParse(testCase.req.PaymentsPoolID),
+					ID:              uuid.New(),
+					CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+					Name:            testCase.req.Name,
+					LedgerName:      testCase.req.LedgerName,
+					LedgerQuery:     testCase.req.LedgerQuery,
+					PaymentsPoolID:  uuid.MustParse(testCase.req.PaymentsPoolID),
+					AssertionMode:   models.AssertionModeCoverage,
+					AssertionConfig: map[string]interface{}{},
 				}
 			}
 
 			expectedPolicyResponse := &policyResponse{
-				ID:             policyServiceResponse.ID.String(),
-				Name:           policyServiceResponse.Name,
-				CreatedAt:      policyServiceResponse.CreatedAt,
-				LedgerName:     policyServiceResponse.LedgerName,
-				LedgerQuery:    policyServiceResponse.LedgerQuery,
-				PaymentsPoolID: policyServiceResponse.PaymentsPoolID.String(),
+				ID:              policyServiceResponse.ID.String(),
+				Name:            policyServiceResponse.Name,
+				CreatedAt:       policyServiceResponse.CreatedAt,
+				LedgerName:      policyServiceResponse.LedgerName,
+				LedgerQuery:     policyServiceResponse.LedgerQuery,
+				PaymentsPoolID:  policyServiceResponse.PaymentsPoolID.String(),
+				AssertionMode:   models.AssertionModeCoverage.String(),
+				AssertionConfig: map[string]interface{}{},
 			}
 
 			backend, mockService := newTestingBackend(t)
@@ -320,22 +324,26 @@ func TestGetPolicy(t *testing.T) {
 			var policyServiceResponse models.Policy
 			if testCase.policyID != "" {
 				policyServiceResponse = models.Policy{
-					ID:             uuid.MustParse(testCase.policyID),
-					CreatedAt:      time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
-					Name:           "test",
-					LedgerName:     "test",
-					LedgerQuery:    map[string]interface{}{},
-					PaymentsPoolID: uuid.New(),
+					ID:              uuid.MustParse(testCase.policyID),
+					CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+					Name:            "test",
+					LedgerName:      "test",
+					LedgerQuery:     map[string]interface{}{},
+					PaymentsPoolID:  uuid.New(),
+					AssertionMode:   models.AssertionModeCoverage,
+					AssertionConfig: map[string]interface{}{},
 				}
 			}
 
 			expectedPolicyResponse := &policyResponse{
-				ID:             policyServiceResponse.ID.String(),
-				Name:           policyServiceResponse.Name,
-				CreatedAt:      policyServiceResponse.CreatedAt,
-				LedgerName:     policyServiceResponse.LedgerName,
-				LedgerQuery:    policyServiceResponse.LedgerQuery,
-				PaymentsPoolID: policyServiceResponse.PaymentsPoolID.String(),
+				ID:              policyServiceResponse.ID.String(),
+				Name:            policyServiceResponse.Name,
+				CreatedAt:       policyServiceResponse.CreatedAt,
+				LedgerName:      policyServiceResponse.LedgerName,
+				LedgerQuery:     policyServiceResponse.LedgerQuery,
+				PaymentsPoolID:  policyServiceResponse.PaymentsPoolID.String(),
+				AssertionMode:   models.AssertionModeCoverage.String(),
+				AssertionConfig: map[string]interface{}{},
 			}
 
 			backend, mockService := newTestingBackend(t)

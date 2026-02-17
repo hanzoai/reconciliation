@@ -12,16 +12,19 @@ import (
 	"github.com/formancehq/go-libs/bun/bunpaginate"
 	"github.com/formancehq/reconciliation/internal/api/backend"
 	"github.com/formancehq/reconciliation/internal/api/service"
+	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/formancehq/reconciliation/internal/storage"
 )
 
 type policyResponse struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	LedgerName     string                 `json:"ledgerName"`
-	LedgerQuery    map[string]interface{} `json:"ledgerQuery"`
-	PaymentsPoolID string                 `json:"paymentsPoolID"`
+	ID              string                 `json:"id"`
+	Name            string                 `json:"name"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	LedgerName      string                 `json:"ledgerName"`
+	LedgerQuery     map[string]interface{} `json:"ledgerQuery"`
+	PaymentsPoolID  string                 `json:"paymentsPoolID"`
+	AssertionMode   string                 `json:"assertionMode"`
+	AssertionConfig map[string]interface{} `json:"assertionConfig"`
 }
 
 func createPolicyHandler(b backend.Backend) http.HandlerFunc {
@@ -39,12 +42,14 @@ func createPolicyHandler(b backend.Backend) http.HandlerFunc {
 		}
 
 		data := &policyResponse{
-			ID:             policy.ID.String(),
-			Name:           policy.Name,
-			CreatedAt:      policy.CreatedAt,
-			LedgerName:     policy.LedgerName,
-			LedgerQuery:    policy.LedgerQuery,
-			PaymentsPoolID: policy.PaymentsPoolID.String(),
+			ID:              policy.ID.String(),
+			Name:            policy.Name,
+			CreatedAt:       policy.CreatedAt,
+			LedgerName:      policy.LedgerName,
+			LedgerQuery:     policy.LedgerQuery,
+			PaymentsPoolID:  policy.PaymentsPoolID.String(),
+			AssertionMode:   models.NormalizeAssertionMode(policy.AssertionMode).String(),
+			AssertionConfig: policy.AssertionConfig,
 		}
 
 		api.Created(w, data)
@@ -76,12 +81,14 @@ func getPolicyHandler(b backend.Backend) http.HandlerFunc {
 		}
 
 		data := &policyResponse{
-			ID:             policy.ID.String(),
-			Name:           policy.Name,
-			CreatedAt:      policy.CreatedAt,
-			LedgerName:     policy.LedgerName,
-			LedgerQuery:    policy.LedgerQuery,
-			PaymentsPoolID: policy.PaymentsPoolID.String(),
+			ID:              policy.ID.String(),
+			Name:            policy.Name,
+			CreatedAt:       policy.CreatedAt,
+			LedgerName:      policy.LedgerName,
+			LedgerQuery:     policy.LedgerQuery,
+			PaymentsPoolID:  policy.PaymentsPoolID.String(),
+			AssertionMode:   models.NormalizeAssertionMode(policy.AssertionMode).String(),
+			AssertionConfig: policy.AssertionConfig,
 		}
 
 		api.Ok(w, data)

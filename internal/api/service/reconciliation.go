@@ -72,6 +72,19 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 
 	ledgerBalances, paymentsBalances = harmonizeBalances(ledgerBalances, paymentsBalances)
 
+	assertionMode := models.NormalizeAssertionMode(policy.AssertionMode)
+	if !assertionMode.IsValid() {
+		return nil, fmt.Errorf("%w: invalid assertion mode on policy", ErrValidation)
+	}
+
+	var minBuffer *minBufferConfig
+	if assertionMode == models.AssertionModeMinBuffer {
+		minBuffer, err = parseMinBufferConfig(policy.AssertionConfig)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid assertionConfig on policy: %s", ErrValidation, err.Error())
+		}
+	}
+
 	res := &models.Reconciliation{
 		ID:                   uuid.New(),
 		PolicyID:             policy.ID,
@@ -84,36 +97,13 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 		DriftBalances:        make(map[string]*big.Int),
 	}
 
-	var reconciliationError bool
-	if len(paymentsBalances) != len(ledgerBalances) {
-		res.Status = models.ReconciliationNotOK
-		res.Error = "different number of assets"
-		reconciliationError = true
-		return res, nil
-	}
-
-	if !reconciliationError {
-		for asset, ledgerBalance := range ledgerBalances {
-			err := s.computeDrift(res, asset, ledgerBalance, paymentsBalances[asset])
-			if err != nil {
-				res.Status = models.ReconciliationNotOK
-				if res.Error == "" {
-					res.Error = err.Error()
-				} else {
-					res.Error = res.Error + "; " + err.Error()
-				}
-			}
-		}
-
-		for asset, paymentBalance := range paymentsBalances {
-			if _, ok := res.DriftBalances[asset]; ok {
-				// Already computed
-				continue
-			}
-
-			err := s.computeDrift(res, asset, ledgerBalances[asset], paymentBalance)
-			if err != nil {
-				res.Status = models.ReconciliationNotOK
+	for asset, ledgerBalance := range ledgerBalances {
+		err := s.computeDrift(res, asset, ledgerBalance, paymentsBalances[asset], assertionMode, minBuffer)
+		if err != nil {
+			res.Status = models.ReconciliationNotOK
+			if res.Error == "" {
+				res.Error = err.Error()
+			} else {
 				res.Error = res.Error + "; " + err.Error()
 			}
 		}
@@ -131,6 +121,8 @@ func (s *Service) computeDrift(
 	asset string,
 	ledgerBalance *big.Int,
 	paymentBalance *big.Int,
+	assertionMode models.AssertionMode,
+	minBuffer *minBufferConfig,
 ) error {
 	switch {
 	case ledgerBalance == nil && paymentBalance == nil:
@@ -145,24 +137,77 @@ func (s *Service) computeDrift(
 		var balance big.Int
 		balance.Set(ledgerBalance).Abs(&balance)
 		res.DriftBalances[asset] = &balance
-		res.DriftBalances[asset] = ledgerBalance
 		return fmt.Errorf("missing asset %s in paymentBalances", asset)
 	case ledgerBalance != nil && paymentBalance != nil:
 		var drift big.Int
 		drift.Set(paymentBalance).Add(&drift, ledgerBalance)
 
-		var err error
-		switch drift.Cmp(big.NewInt(0)) {
-		case 0, 1:
-		default:
-			err = fmt.Errorf("balance drift for asset %s", asset)
-		}
-
+		err := evaluateDrift(assertionMode, asset, &drift, ledgerBalance, minBuffer)
 		res.DriftBalances[asset] = drift.Abs(&drift)
 		return err
 	}
 
 	return nil
+}
+
+func evaluateDrift(
+	assertionMode models.AssertionMode,
+	asset string,
+	drift *big.Int,
+	ledgerBalance *big.Int,
+	minBuffer *minBufferConfig,
+) error {
+	switch assertionMode {
+	case models.AssertionModeCoverage:
+		if drift.Cmp(big.NewInt(0)) < 0 {
+			return fmt.Errorf("balance drift for asset %s", asset)
+		}
+		return nil
+	case models.AssertionModeEquality:
+		if drift.Cmp(big.NewInt(0)) != 0 {
+			return fmt.Errorf("equality drift for asset %s", asset)
+		}
+		return nil
+	case models.AssertionModeMinBuffer:
+		required, err := requiredBufferForAsset(minBuffer, asset, ledgerBalance)
+		if err != nil {
+			return err
+		}
+		if drift.Cmp(required) < 0 {
+			return fmt.Errorf("min buffer drift for asset %s", asset)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown assertion mode %s", assertionMode)
+	}
+}
+
+func requiredBufferForAsset(cfg *minBufferConfig, asset string, ledgerBalance *big.Int) (*big.Int, error) {
+	if cfg == nil {
+		return nil, errors.New("missing assertionConfig for MIN_BUFFER")
+	}
+
+	bufferType := cfg.BufferType
+	bufferValue := cfg.BufferValue
+	if assetCfg, ok := cfg.PerAsset[asset]; ok {
+		bufferType = assetCfg.BufferType
+		bufferValue = assetCfg.BufferValue
+	}
+
+	switch bufferType {
+	case "ABSOLUTE":
+		return big.NewInt(bufferValue), nil
+	case "BPS":
+		var exposure big.Int
+		exposure.Abs(ledgerBalance)
+
+		var required big.Int
+		required.Mul(&exposure, big.NewInt(bufferValue))
+		required.Div(&required, big.NewInt(10000))
+		return &required, nil
+	default:
+		return nil, errors.New("bufferType must be ABSOLUTE or BPS")
+	}
 }
 
 // Missing asset should be considered as asset with balance 0
