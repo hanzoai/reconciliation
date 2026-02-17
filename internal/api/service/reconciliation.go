@@ -70,8 +70,6 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 		return nil, err
 	}
 
-	ledgerBalances, paymentsBalances = harmonizeBalances(ledgerBalances, paymentsBalances)
-
 	assertionMode := models.NormalizeAssertionMode(policy.AssertionMode)
 	if !assertionMode.IsValid() {
 		return nil, fmt.Errorf("%w: invalid assertion mode on policy", ErrValidation)
@@ -98,7 +96,12 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 	}
 
 	for asset, ledgerBalance := range ledgerBalances {
-		err := s.computeDrift(res, asset, ledgerBalance, paymentsBalances[asset], assertionMode, minBuffer)
+		paymentBalance, ok := paymentsBalances[asset]
+		if !ok {
+			paymentBalance = nil
+		}
+
+		err := s.computeDrift(res, asset, ledgerBalance, paymentBalance, assertionMode, minBuffer)
 		if err != nil {
 			res.Status = models.ReconciliationNotOK
 			if res.Error == "" {
