@@ -20,6 +20,7 @@ import (
 type reconciliationResponse struct {
 	ID                   string              `json:"id"`
 	PolicyID             string              `json:"policyID"`
+	PolicyVersion        int64               `json:"policyVersion"`
 	CreatedAt            time.Time           `json:"createdAt"`
 	ReconciledAtLedger   time.Time           `json:"reconciledAtLedger"`
 	ReconciledAtPayments time.Time           `json:"reconciledAtPayments"`
@@ -58,7 +59,8 @@ func reconciliationHandler(b backend.Backend) http.HandlerFunc {
 
 		data := &reconciliationResponse{
 			ID:                   res.ID.String(),
-			PolicyID:             policyID,
+			PolicyID:             res.PolicyID.String(),
+			PolicyVersion:        res.PolicyVersion,
 			CreatedAt:            res.CreatedAt,
 			ReconciledAtLedger:   res.ReconciledAtLedger,
 			ReconciledAtPayments: res.ReconciledAtPayments,
@@ -86,6 +88,7 @@ func getReconciliationHandler(b backend.Backend) http.HandlerFunc {
 		data := &reconciliationResponse{
 			ID:                   res.ID.String(),
 			PolicyID:             res.PolicyID.String(),
+			PolicyVersion:        res.PolicyVersion,
 			CreatedAt:            res.CreatedAt,
 			ReconciledAtLedger:   res.ReconciledAtLedger,
 			ReconciledAtPayments: res.ReconciledAtPayments,

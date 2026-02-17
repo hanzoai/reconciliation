@@ -53,18 +53,33 @@ func (mr *MockServiceMockRecorder) CreatePolicy(ctx, req interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePolicy", reflect.TypeOf((*MockService)(nil).CreatePolicy), ctx, req)
 }
 
-// DeletePolicy mocks base method.
-func (m *MockService) DeletePolicy(ctx context.Context, id string) error {
+// CreatePolicyVersion mocks base method.
+func (m *MockService) CreatePolicyVersion(ctx context.Context, id string, req *service.CreatePolicyVersionRequest) (*models.Policy, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeletePolicy", ctx, id)
+	ret := m.ctrl.Call(m, "CreatePolicyVersion", ctx, id, req)
+	ret0, _ := ret[0].(*models.Policy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreatePolicyVersion indicates an expected call of CreatePolicyVersion.
+func (mr *MockServiceMockRecorder) CreatePolicyVersion(ctx, id, req interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePolicyVersion", reflect.TypeOf((*MockService)(nil).CreatePolicyVersion), ctx, id, req)
+}
+
+// ArchivePolicy mocks base method.
+func (m *MockService) ArchivePolicy(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ArchivePolicy", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeletePolicy indicates an expected call of DeletePolicy.
-func (mr *MockServiceMockRecorder) DeletePolicy(ctx, id interface{}) *gomock.Call {
+// ArchivePolicy indicates an expected call of ArchivePolicy.
+func (mr *MockServiceMockRecorder) ArchivePolicy(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePolicy", reflect.TypeOf((*MockService)(nil).DeletePolicy), ctx, id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchivePolicy", reflect.TypeOf((*MockService)(nil).ArchivePolicy), ctx, id)
 }
 
 // GetPolicy mocks base method.

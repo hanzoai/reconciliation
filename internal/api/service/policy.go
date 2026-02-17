@@ -24,6 +24,8 @@ type CreatePolicyRequest struct {
 	AssertionConfig map[string]interface{} `json:"assertionConfig"`
 }
 
+type CreatePolicyVersionRequest = CreatePolicyRequest
+
 func (r *CreatePolicyRequest) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("%w: missing name", ErrValidation)
@@ -68,8 +70,11 @@ func (s *Service) CreatePolicy(ctx context.Context, req *CreatePolicyRequest) (*
 
 	policy := &models.Policy{
 		ID:              uuid.New(),
+		PolicyID:        uuid.New(),
+		Version:         1,
 		Name:            req.Name,
 		CreatedAt:       time.Now().UTC(),
+		Lifecycle:       models.PolicyLifecycleEnabled,
 		LedgerName:      req.LedgerName,
 		LedgerQuery:     req.LedgerQuery,
 		PaymentsPoolID:  paymentPoolID,
@@ -80,6 +85,46 @@ func (s *Service) CreatePolicy(ctx context.Context, req *CreatePolicyRequest) (*
 	err = s.store.CreatePolicy(ctx, policy)
 	if err != nil {
 		return nil, newStorageError(err, "creating policy")
+	}
+
+	return policy, nil
+}
+
+func (s *Service) CreatePolicyVersion(ctx context.Context, id string, req *CreatePolicyVersionRequest) (*models.Policy, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	policyID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, errors.Wrap(ErrInvalidID, err.Error())
+	}
+
+	latest, err := s.store.GetPolicy(ctx, policyID)
+	if err != nil {
+		return nil, newStorageError(err, "getting policy")
+	}
+
+	paymentPoolID, err := uuid.Parse(req.PaymentsPoolID)
+	if err != nil {
+		return nil, errors.Wrap(ErrInvalidID, err.Error())
+	}
+
+	policy := &models.Policy{
+		ID:              uuid.New(),
+		PolicyID:        latest.PolicyID,
+		Name:            req.Name,
+		CreatedAt:       time.Now().UTC(),
+		Lifecycle:       latest.Lifecycle,
+		LedgerName:      req.LedgerName,
+		LedgerQuery:     req.LedgerQuery,
+		PaymentsPoolID:  paymentPoolID,
+		AssertionMode:   req.AssertionMode,
+		AssertionConfig: req.AssertionConfig,
+	}
+
+	if err := s.store.CreatePolicyVersion(ctx, policy); err != nil {
+		return nil, newStorageError(err, "creating policy version")
 	}
 
 	return policy, nil
@@ -150,13 +195,13 @@ func validateMinBufferRule(asset string, rule minBufferAssetRule) error {
 	return nil
 }
 
-func (s *Service) DeletePolicy(ctx context.Context, id string) error {
+func (s *Service) ArchivePolicy(ctx context.Context, id string) error {
 	pID, err := uuid.Parse(id)
 	if err != nil {
 		return errors.Wrap(ErrInvalidID, err.Error())
 	}
 
-	return newStorageError(s.store.DeletePolicy(ctx, pID), "deleting policy")
+	return newStorageError(s.store.ArchivePolicy(ctx, pID), "archiving policy")
 }
 
 func (s *Service) GetPolicy(ctx context.Context, id string) (*models.Policy, error) {

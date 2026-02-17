@@ -18,6 +18,8 @@ import (
 
 type policyResponse struct {
 	ID              string                 `json:"id"`
+	Version         int64                  `json:"version"`
+	Lifecycle       string                 `json:"lifecycle"`
 	Name            string                 `json:"name"`
 	CreatedAt       time.Time              `json:"createdAt"`
 	LedgerName      string                 `json:"ledgerName"`
@@ -42,7 +44,9 @@ func createPolicyHandler(b backend.Backend) http.HandlerFunc {
 		}
 
 		data := &policyResponse{
-			ID:              policy.ID.String(),
+			ID:              policy.PolicyID.String(),
+			Version:         policy.Version,
+			Lifecycle:       models.NormalizePolicyLifecycle(policy.Lifecycle).String(),
 			Name:            policy.Name,
 			CreatedAt:       policy.CreatedAt,
 			LedgerName:      policy.LedgerName,
@@ -56,11 +60,44 @@ func createPolicyHandler(b backend.Backend) http.HandlerFunc {
 	}
 }
 
-func deletePolicyHandler(b backend.Backend) http.HandlerFunc {
+func createPolicyVersionHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "policyID")
 
-		err := b.GetService().DeletePolicy(r.Context(), id)
+		var req service.CreatePolicyVersionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			api.BadRequest(w, ErrMissingOrInvalidBody, err)
+			return
+		}
+
+		policy, err := b.GetService().CreatePolicyVersion(r.Context(), id, &req)
+		if err != nil {
+			handleServiceErrors(w, r, err)
+			return
+		}
+
+		data := &policyResponse{
+			ID:              policy.PolicyID.String(),
+			Version:         policy.Version,
+			Lifecycle:       models.NormalizePolicyLifecycle(policy.Lifecycle).String(),
+			Name:            policy.Name,
+			CreatedAt:       policy.CreatedAt,
+			LedgerName:      policy.LedgerName,
+			LedgerQuery:     policy.LedgerQuery,
+			PaymentsPoolID:  policy.PaymentsPoolID.String(),
+			Mode:            models.NormalizeAssertionMode(policy.AssertionMode).String(),
+			AssertionConfig: policy.AssertionConfig,
+		}
+
+		api.Created(w, data)
+	}
+}
+
+func archivePolicyHandler(b backend.Backend) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "policyID")
+
+		err := b.GetService().ArchivePolicy(r.Context(), id)
 		if err != nil {
 			handleServiceErrors(w, r, err)
 			return
@@ -81,7 +118,9 @@ func getPolicyHandler(b backend.Backend) http.HandlerFunc {
 		}
 
 		data := &policyResponse{
-			ID:              policy.ID.String(),
+			ID:              policy.PolicyID.String(),
+			Version:         policy.Version,
+			Lifecycle:       models.NormalizePolicyLifecycle(policy.Lifecycle).String(),
 			Name:            policy.Name,
 			CreatedAt:       policy.CreatedAt,
 			LedgerName:      policy.LedgerName,
@@ -122,7 +161,9 @@ func listPoliciesHandler(b backend.Backend) http.HandlerFunc {
 
 		api.RenderCursor(w, *bunpaginate.MapCursor(cursor, func(policy models.Policy) policyResponse {
 			return policyResponse{
-				ID:              policy.ID.String(),
+				ID:              policy.PolicyID.String(),
+				Version:         policy.Version,
+				Lifecycle:       models.NormalizePolicyLifecycle(policy.Lifecycle).String(),
 				Name:            policy.Name,
 				CreatedAt:       policy.CreatedAt,
 				LedgerName:      policy.LedgerName,

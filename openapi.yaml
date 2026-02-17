@@ -56,22 +56,6 @@ paths:
         - Authorization:
             - reconciliation:read
   /policies/{policyID}:
-    delete:
-      summary: Delete a policy
-      operationId: deletePolicy
-      tags:
-        - reconciliation.v1
-      description: Delete a policy by its id.
-      parameters:
-        - $ref: '#/components/parameters/PolicyID'
-      responses:
-        '204':
-          $ref: '#/components/responses/NoContent'
-        default:
-          $ref: '#/components/responses/ErrorResponse'
-      security:
-        - Authorization:
-            - reconciliation:write
     get:
       summary: Get a policy
       tags:
@@ -87,6 +71,42 @@ paths:
       security:
         - Authorization:
             - reconciliation:read
+  /policies/{policyID}/versions:
+    post:
+      summary: Create a policy version
+      tags:
+        - reconciliation.v1
+      operationId: createPolicyVersion
+      description: Append a new immutable version to an existing policy.
+      parameters:
+        - $ref: '#/components/parameters/PolicyID'
+      requestBody:
+        $ref: '#/components/requestBodies/Policy'
+      responses:
+        '201':
+          $ref: '#/components/responses/Policy'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+      security:
+        - Authorization:
+            - reconciliation:write
+  /policies/{policyID}/archive:
+    post:
+      summary: Archive a policy
+      operationId: archivePolicy
+      tags:
+        - reconciliation.v1
+      description: Archive a policy and prevent new reconciliations from using it.
+      parameters:
+        - $ref: '#/components/parameters/PolicyID'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+      security:
+        - Authorization:
+            - reconciliation:write
   /policies/{policyID}/reconciliation:
     post:
       summary: Reconcile using a policy
@@ -366,6 +386,11 @@ components:
           type: string
           format: date-time
           example: '2021-01-01T00:00:00.000Z'
+        policyVersion:
+          type: integer
+          format: int64
+          example: 2
+          description: Optional explicit policy version to use. Defaults to latest.
     ReconciliationResponse:
       type: object
       required:
@@ -377,6 +402,8 @@ components:
       type: object
       required:
         - id
+        - version
+        - lifecycle
         - name
         - createdAt
         - ledgerName
@@ -388,6 +415,13 @@ components:
         id:
           type: string
           example: XXX
+          description: Stable policy identifier shared by all versions.
+        version:
+          type: integer
+          format: int64
+          example: 1
+        lifecycle:
+          $ref: '#/components/schemas/PolicyLifecycle'
         name:
           type: string
           example: XXX
@@ -416,11 +450,18 @@ components:
         - COVERAGE
         - EQUALITY
         - MIN_BUFFER
+    PolicyLifecycle:
+      type: string
+      enum:
+        - ENABLED
+        - DISABLED
+        - ARCHIVED
     Reconciliation:
       type: object
       required:
         - id
         - policyID
+        - policyVersion
         - createdAt
         - reconciledAtLedger
         - reconciledAtPayments
@@ -435,6 +476,10 @@ components:
         policyID:
           type: string
           example: XXX
+        policyVersion:
+          type: integer
+          format: int64
+          example: 3
         createdAt:
           type: string
           format: date-time

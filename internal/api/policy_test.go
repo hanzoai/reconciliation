@@ -10,8 +10,8 @@ import (
 	"time"
 
 	sharedapi "github.com/formancehq/go-libs/api"
-	"github.com/formancehq/go-libs/bun/bunpaginate"
 	"github.com/formancehq/go-libs/auth"
+	"github.com/formancehq/go-libs/bun/bunpaginate"
 	"github.com/formancehq/reconciliation/internal/api/service"
 	"github.com/formancehq/reconciliation/internal/models"
 	"github.com/formancehq/reconciliation/internal/storage"
@@ -116,6 +116,9 @@ func TestCreatePolicy(t *testing.T) {
 			if testCase.req != nil {
 				policyServiceResponse = models.Policy{
 					ID:              uuid.New(),
+					PolicyID:        uuid.New(),
+					Version:         1,
+					Lifecycle:       models.PolicyLifecycleEnabled,
 					CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 					Name:            testCase.req.Name,
 					LedgerName:      testCase.req.LedgerName,
@@ -127,7 +130,9 @@ func TestCreatePolicy(t *testing.T) {
 			}
 
 			expectedPolicyResponse := &policyResponse{
-				ID:              policyServiceResponse.ID.String(),
+				ID:              policyServiceResponse.PolicyID.String(),
+				Version:         policyServiceResponse.Version,
+				Lifecycle:       policyServiceResponse.Lifecycle.String(),
 				Name:            policyServiceResponse.Name,
 				CreatedAt:       policyServiceResponse.CreatedAt,
 				LedgerName:      policyServiceResponse.LedgerName,
@@ -181,7 +186,7 @@ func TestCreatePolicy(t *testing.T) {
 	}
 }
 
-func TestDeletePolicy(t *testing.T) {
+func TestArchivePolicy(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
@@ -239,12 +244,12 @@ func TestDeletePolicy(t *testing.T) {
 			backend, mockService := newTestingBackend(t)
 			if testCase.expectedStatusCode < 300 && testCase.expectedStatusCode >= 200 {
 				mockService.EXPECT().
-					DeletePolicy(gomock.Any(), testCase.policyID).
+					ArchivePolicy(gomock.Any(), testCase.policyID).
 					Return(nil)
 			}
 			if testCase.serviceError != nil {
 				mockService.EXPECT().
-					DeletePolicy(gomock.Any(), testCase.policyID).
+					ArchivePolicy(gomock.Any(), testCase.policyID).
 					Return(testCase.serviceError)
 			}
 
@@ -252,7 +257,7 @@ func TestDeletePolicy(t *testing.T) {
 				Debug: testing.Verbose(),
 			}, auth.NewNoAuth(), nil)
 
-			req := httptest.NewRequest(http.MethodDelete, "/policies/"+testCase.policyID, nil)
+			req := httptest.NewRequest(http.MethodPost, "/policies/"+testCase.policyID+"/archive", nil)
 			rec := httptest.NewRecorder()
 
 			router.ServeHTTP(rec, req)
@@ -272,6 +277,9 @@ func TestListPolicies(t *testing.T) {
 
 	policy := models.Policy{
 		ID:              uuid.New(),
+		PolicyID:        uuid.New(),
+		Version:         1,
+		Lifecycle:       models.PolicyLifecycleEnabled,
 		Name:            "policy-1",
 		CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 		LedgerName:      "ledger",
@@ -307,7 +315,9 @@ func TestListPolicies(t *testing.T) {
 	require.NotNil(t, resp.Cursor)
 	require.Len(t, resp.Cursor.Data, 1)
 	require.Equal(t, models.AssertionModeCoverage.String(), resp.Cursor.Data[0].Mode)
-	require.Equal(t, policy.ID.String(), resp.Cursor.Data[0].ID)
+	require.Equal(t, policy.PolicyID.String(), resp.Cursor.Data[0].ID)
+	require.Equal(t, policy.Version, resp.Cursor.Data[0].Version)
+	require.Equal(t, policy.Lifecycle.String(), resp.Cursor.Data[0].Lifecycle)
 }
 
 func TestGetPolicy(t *testing.T) {
@@ -369,6 +379,9 @@ func TestGetPolicy(t *testing.T) {
 			if testCase.policyID != "" {
 				policyServiceResponse = models.Policy{
 					ID:              uuid.MustParse(testCase.policyID),
+					PolicyID:        uuid.MustParse(testCase.policyID),
+					Version:         1,
+					Lifecycle:       models.PolicyLifecycleEnabled,
 					CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 					Name:            "test",
 					LedgerName:      "test",
@@ -380,7 +393,9 @@ func TestGetPolicy(t *testing.T) {
 			}
 
 			expectedPolicyResponse := &policyResponse{
-				ID:              policyServiceResponse.ID.String(),
+				ID:              policyServiceResponse.PolicyID.String(),
+				Version:         policyServiceResponse.Version,
+				Lifecycle:       policyServiceResponse.Lifecycle.String(),
 				Name:            policyServiceResponse.Name,
 				CreatedAt:       policyServiceResponse.CreatedAt,
 				LedgerName:      policyServiceResponse.LedgerName,

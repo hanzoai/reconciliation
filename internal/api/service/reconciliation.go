@@ -18,6 +18,7 @@ import (
 type ReconciliationRequest struct {
 	ReconciledAtLedger   time.Time `json:"reconciledAtLedger"`
 	ReconciledAtPayments time.Time `json:"reconciledAtPayments"`
+	PolicyVersion        *int64    `json:"policyVersion,omitempty"`
 }
 
 func (r *ReconciliationRequest) Validate() error {
@@ -47,9 +48,17 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 	}
 
 	eg, ctxGroup := errgroup.WithContext(ctx)
-	policy, err := s.store.GetPolicy(ctx, id)
-	if err != nil {
-		return nil, newStorageError(err, "failed to get policy")
+	var policy *models.Policy
+	if req.PolicyVersion != nil {
+		policy, err = s.store.GetPolicyVersion(ctx, id, *req.PolicyVersion)
+		if err != nil {
+			return nil, newStorageError(err, "failed to get policy version")
+		}
+	} else {
+		policy, err = s.store.GetPolicy(ctx, id)
+		if err != nil {
+			return nil, newStorageError(err, "failed to get policy")
+		}
 	}
 
 	var paymentsBalances map[string]*big.Int
@@ -70,6 +79,10 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 		return nil, err
 	}
 
+	if normalized := models.NormalizePolicyLifecycle(policy.Lifecycle); normalized != models.PolicyLifecycleEnabled {
+		return nil, fmt.Errorf("%w: policy is not enabled", ErrValidation)
+	}
+
 	assertionMode := models.NormalizeAssertionMode(policy.AssertionMode)
 	if !assertionMode.IsValid() {
 		return nil, fmt.Errorf("%w: invalid assertion mode on policy", ErrValidation)
@@ -85,7 +98,8 @@ func (s *Service) Reconciliation(ctx context.Context, policyID string, req *Reco
 
 	res := &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             policy.ID,
+		PolicyID:             policy.PolicyID,
+		PolicyVersion:        policy.Version,
 		CreatedAt:            time.Now().UTC(),
 		ReconciledAtLedger:   req.ReconciledAtLedger,
 		ReconciledAtPayments: req.ReconciledAtPayments,

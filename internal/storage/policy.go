@@ -23,23 +23,13 @@ func (s *Storage) CreatePolicy(ctx context.Context, policy *models.Policy) error
 	return nil
 }
 
-func (s *Storage) DeletePolicy(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.NewDelete().
-		Model(&models.Policy{}).
-		Where("id = ?", id).
-		Exec(ctx)
-	if err != nil {
-		return e("failed to delete policy", err)
-	}
-
-	return nil
-}
-
 func (s *Storage) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy, error) {
 	var policy models.Policy
 	err := s.db.NewSelect().
 		Model(&policy).
-		Where("id = ?", id).
+		Where("policy_id = ?", id).
+		Order("version DESC").
+		Limit(1).
 		Scan(ctx)
 	if err != nil {
 		return nil, e("failed to get policy", err)
@@ -48,8 +38,61 @@ func (s *Storage) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy, 
 	return &policy, nil
 }
 
+func (s *Storage) GetPolicyVersion(ctx context.Context, policyID uuid.UUID, version int64) (*models.Policy, error) {
+	var policy models.Policy
+	err := s.db.NewSelect().
+		Model(&policy).
+		Where("policy_id = ?", policyID).
+		Where("version = ?", version).
+		Scan(ctx)
+	if err != nil {
+		return nil, e("failed to get policy", err)
+	}
+
+	return &policy, nil
+}
+
+func (s *Storage) CreatePolicyVersion(ctx context.Context, policy *models.Policy) error {
+	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		var latestVersion int64
+		if err := tx.NewSelect().
+			Model((*models.Policy)(nil)).
+			ColumnExpr("COALESCE(MAX(version), 0)").
+			Where("policy_id = ?", policy.PolicyID).
+			Scan(ctx, &latestVersion); err != nil {
+			return e("failed to get latest policy version", err)
+		}
+
+		policy.Version = latestVersion + 1
+		_, err := tx.NewInsert().Model(policy).Exec(ctx)
+		if err != nil {
+			return e("failed to create policy version", err)
+		}
+
+		return nil
+	})
+}
+
+func (s *Storage) ArchivePolicy(ctx context.Context, id uuid.UUID) error {
+	_, err := s.db.NewUpdate().
+		Model((*models.Policy)(nil)).
+		Set("lifecycle = ?", models.PolicyLifecycleArchived).
+		Where("policy_id = ?", id).
+		Exec(ctx)
+	if err != nil {
+		return e("failed to archive policy", err)
+	}
+	return nil
+}
+
 func (s *Storage) buildPolicyListQuery(selectQuery *bun.SelectQuery, q GetPoliciesQuery, where string, args []any) *bun.SelectQuery {
+	latestPolicyRows := s.db.NewSelect().
+		TableExpr("reconciliations.policy").
+		ColumnExpr("DISTINCT ON (policy_id) id").
+		OrderExpr("policy_id, version DESC")
+
 	selectQuery = selectQuery.
+		Where("id IN (?)", latestPolicyRows).
 		Order("created_at DESC")
 
 	if where != "" {
@@ -89,7 +132,9 @@ func (s *Storage) policyQueryContext(qb query.Builder, q GetPoliciesQuery) (stri
 			if operator != "$match" {
 				return "", nil, errors.Wrap(ErrInvalidQuery, "'id' and 'name' columns can only be used with $match")
 			}
-
+			if key == "id" {
+				return "policy_id = ?", []any{value}, nil
+			}
 			return fmt.Sprintf("%s = ?", key), []any{value}, nil
 		case "createdAt":
 			return fmt.Sprintf("created_at %s ?", query.DefaultComparisonOperatorsMapping[operator]), []any{value}, nil
