@@ -284,8 +284,11 @@ func TestReconciliation(t *testing.T) {
 			policy: &models.Policy{
 				AssertionMode: models.AssertionModeMinBuffer,
 				AssertionConfig: map[string]interface{}{
-					"bufferType":  "ABSOLUTE",
-					"bufferValue": 25,
+					"assets": map[string]interface{}{
+						"*": map[string]interface{}{
+							"absolute": 25,
+						},
+					},
 				},
 			},
 			expectedReco: &models.Reconciliation{
@@ -315,8 +318,11 @@ func TestReconciliation(t *testing.T) {
 			policy: &models.Policy{
 				AssertionMode: models.AssertionModeMinBuffer,
 				AssertionConfig: map[string]interface{}{
-					"bufferType":  "BPS",
-					"bufferValue": 600,
+					"assets": map[string]interface{}{
+						"*": map[string]interface{}{
+							"bps": 600,
+						},
+					},
 				},
 			},
 			expectedReco: &models.Reconciliation{
@@ -346,11 +352,53 @@ func TestReconciliation(t *testing.T) {
 			policy: &models.Policy{
 				AssertionMode: models.AssertionModeMinBuffer,
 				AssertionConfig: map[string]interface{}{
-					"bufferType":  "UNKNOWN",
-					"bufferValue": 1,
+					"assets": map[string]interface{}{
+						"*": map[string]interface{}{
+							"absolute": 1,
+						},
+					},
 				},
 			},
 			expectedError: true,
+		},
+		{
+			name:            "min buffer strict list unknown asset fails at runtime",
+			ledgerVersion:   "v2.0.0-beta.1",
+			paymentsVersion: "v1.0.0-rc.4",
+			ledgerBalances: map[string]*big.Int{
+				"USD/2": big.NewInt(100),
+				"EUR/2": big.NewInt(50),
+			},
+			paymentsBalances: map[string]*big.Int{
+				"USD/2": big.NewInt(-100),
+				"EUR/2": big.NewInt(-50),
+			},
+			policy: &models.Policy{
+				AssertionMode: models.AssertionModeMinBuffer,
+				AssertionConfig: map[string]interface{}{
+					"assets": map[string]interface{}{
+						"USD/2": map[string]interface{}{
+							"bps": 100,
+						},
+					},
+				},
+			},
+			expectedReco: &models.Reconciliation{
+				Status: models.ReconciliationNotOK,
+				LedgerBalances: map[string]*big.Int{
+					"USD/2": big.NewInt(100),
+					"EUR/2": big.NewInt(50),
+				},
+				PaymentsBalances: map[string]*big.Int{
+					"USD/2": big.NewInt(-100),
+					"EUR/2": big.NewInt(-50),
+				},
+				DriftBalances: map[string]*big.Int{
+					"USD/2": big.NewInt(0),
+					"EUR/2": big.NewInt(0),
+				},
+				Error: "missing MIN_BUFFER rule for asset EUR/2",
+			},
 		},
 	}
 

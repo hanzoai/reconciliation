@@ -42,10 +42,42 @@ func TestCreatePolicyRequestValidateAssertionMode(t *testing.T) {
 		req := base
 		req.AssertionMode = models.AssertionModeMinBuffer
 		req.AssertionConfig = map[string]interface{}{
-			"bufferType":  "ABSOLUTE",
-			"bufferValue": 10,
+			"assets": map[string]interface{}{
+				"*": map[string]interface{}{
+					"bps": 100,
+				},
+			},
 		}
 		err := req.Validate()
 		require.NoError(t, err)
+	})
+
+	t.Run("min buffer invalid star absolute", func(t *testing.T) {
+		req := base
+		req.AssertionMode = models.AssertionModeMinBuffer
+		req.AssertionConfig = map[string]interface{}{
+			"assets": map[string]interface{}{
+				"*": map[string]interface{}{
+					"absolute": 10,
+				},
+			},
+		}
+		err := req.Validate()
+		require.Error(t, err)
+	})
+
+	t.Run("min buffer invalid both fields", func(t *testing.T) {
+		req := base
+		req.AssertionMode = models.AssertionModeMinBuffer
+		req.AssertionConfig = map[string]interface{}{
+			"assets": map[string]interface{}{
+				"USD/2": map[string]interface{}{
+					"bps":      10,
+					"absolute": 100,
+				},
+			},
+		}
+		err := req.Validate()
+		require.Error(t, err)
 	})
 }
