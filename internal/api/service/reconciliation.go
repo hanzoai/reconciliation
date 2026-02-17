@@ -214,28 +214,6 @@ func requiredBufferForAsset(cfg *minBufferConfig, asset string, ledgerBalance *b
 	return nil, fmt.Errorf("invalid MIN_BUFFER rule for asset %s", asset)
 }
 
-// Missing asset should be considered as asset with balance 0
-func harmonizeBalances(ledgerBalances, paymentsBalances map[string]*big.Int) (map[string]*big.Int, map[string]*big.Int) {
-	allAssets := make(map[string]struct{})
-	for asset := range ledgerBalances {
-		allAssets[asset] = struct{}{}
-	}
-	for asset := range paymentsBalances {
-		allAssets[asset] = struct{}{}
-	}
-
-	for asset := range allAssets {
-		if _, ok := ledgerBalances[asset]; !ok {
-			ledgerBalances[asset] = big.NewInt(0)
-		}
-		if _, ok := paymentsBalances[asset]; !ok {
-			paymentsBalances[asset] = big.NewInt(0)
-		}
-	}
-
-	return ledgerBalances, paymentsBalances
-}
-
 func (s *Service) GetReconciliation(ctx context.Context, id string) (*models.Reconciliation, error) {
 	rID, err := uuid.Parse(id)
 	if err != nil {
