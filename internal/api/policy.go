@@ -60,17 +60,17 @@ func createPolicyHandler(b backend.Backend) http.HandlerFunc {
 	}
 }
 
-func createPolicyVersionHandler(b backend.Backend) http.HandlerFunc {
+func updatePolicyHandler(b backend.Backend) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "policyID")
 
-		var req service.CreatePolicyVersionRequest
+		var req service.UpdatePolicyRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			api.BadRequest(w, ErrMissingOrInvalidBody, err)
 			return
 		}
 
-		policy, err := b.GetService().CreatePolicyVersion(r.Context(), id, &req)
+		policy, err := b.GetService().UpdatePolicy(r.Context(), id, &req)
 		if err != nil {
 			handleServiceErrors(w, r, err)
 			return
@@ -89,7 +89,7 @@ func createPolicyVersionHandler(b backend.Backend) http.HandlerFunc {
 			AssertionConfig: policy.AssertionConfig,
 		}
 
-		api.Created(w, data)
+		api.Ok(w, data)
 	}
 }
 

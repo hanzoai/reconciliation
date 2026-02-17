@@ -24,7 +24,7 @@ type CreatePolicyRequest struct {
 	AssertionConfig map[string]interface{} `json:"assertionConfig"`
 }
 
-type CreatePolicyVersionRequest = CreatePolicyRequest
+type UpdatePolicyRequest = CreatePolicyRequest
 
 func (r *CreatePolicyRequest) Validate() error {
 	if r.Name == "" {
@@ -90,7 +90,7 @@ func (s *Service) CreatePolicy(ctx context.Context, req *CreatePolicyRequest) (*
 	return policy, nil
 }
 
-func (s *Service) CreatePolicyVersion(ctx context.Context, id string, req *CreatePolicyVersionRequest) (*models.Policy, error) {
+func (s *Service) UpdatePolicy(ctx context.Context, id string, req *UpdatePolicyRequest) (*models.Policy, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
