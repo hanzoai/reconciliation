@@ -34,19 +34,13 @@ jobs:
         uses: ./.github/actions/env
         with:
           token: ${{ secrets.NUMARY_GITHUB_TOKEN }}
-      - run: >
-          earthly
-          --allow-privileged
-          --secret SPEAKEASY_API_KEY=$SPEAKEASY_API_KEY
-          ${{ contains(github.event.pull_request.labels.*.name, 'no-cache') && '--no-cache' || '' }}
-          +pre-commit
-        env:
-          SPEAKEASY_API_KEY: ${{ secrets.SPEAKEASY_API_KEY }}
+      - name: Run pre-commit
+        run: nix develop --impure -c just pre-commit
       - name: Get changed files
         id: changed-files
         shell: bash
         run: |
-          hasChanged=$(git status --porcelain) 
+          hasChanged=$(git status --porcelain)
           if (( $(echo ${#hasChanged}) != 0 )); then
             git status
             echo "There are changes in the repository"
@@ -65,15 +59,8 @@ jobs:
         uses: ./.github/actions/env
         with:
           token: ${{ secrets.NUMARY_GITHUB_TOKEN }}
-      - run: >
-          earthly
-          --no-output
-          --allow-privileged
-          --secret SPEAKEASY_API_KEY=$SPEAKEASY_API_KEY
-          ${{ contains(github.event.pull_request.labels.*.name, 'no-cache') && '--no-cache' || '' }}
-          +tests
-        env:
-          SPEAKEASY_API_KEY: ${{ secrets.SPEAKEASY_API_KEY }}
+      - name: Run tests
+        run: nix develop --impure -c just tests
 
   GoReleaser:
     runs-on: "ubuntu-latest"
@@ -88,16 +75,8 @@ jobs:
         uses: ./.github/actions/env
         with:
           token: ${{ secrets.NUMARY_GITHUB_TOKEN }}
-      - run: >
-          earthly
-          --no-output
-          --allow-privileged
-          --secret SPEAKEASY_API_KEY=$SPEAKEASY_API_KEY
-          --secret GITHUB_TOKEN=$GITHUB_TOKEN
-          --secret FURY_TOKEN=$FURY_TOKEN
-          --secret GORELEASER_KEY=$GORELEASER_KEY
-          ${{ contains(github.event.pull_request.labels.*.name, 'no-cache') && '--no-cache' || '' }}
-          +release --mode=ci
+      - name: Run GoReleaser
+        run: nix develop --impure -c just release-ci
         env:
           GITHUB_TOKEN: ${{ secrets.NUMARY_GITHUB_TOKEN }}
           SPEAKEASY_API_KEY: ${{ secrets.SPEAKEASY_API_KEY }}
@@ -131,8 +110,8 @@ jobs:
           COMPONENT: reconciliation
           ARGOCD_REGION_AUTH_TOKEN: ${{ secrets.ARGOCD_REGION_AUTH_TOKEN }}
         run: >
-          earthly  
-          --no-output 
+          earthly
+          --no-output
           --secret AUTH_TOKEN=$ARGOCD_REGION_AUTH_TOKEN
           +deploy-staging
           --TAG=$TAG
