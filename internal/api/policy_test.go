@@ -132,7 +132,7 @@ func TestCreatePolicy(t *testing.T) {
 				LedgerName:      policyServiceResponse.LedgerName,
 				LedgerQuery:     policyServiceResponse.LedgerQuery,
 				PaymentsPoolID:  policyServiceResponse.PaymentsPoolID.String(),
-				AssertionMode:   models.AssertionModeCoverage.String(),
+				Mode:            models.AssertionModeCoverage.String(),
 				AssertionConfig: map[string]interface{}{},
 			}
 
@@ -342,7 +342,7 @@ func TestGetPolicy(t *testing.T) {
 				LedgerName:      policyServiceResponse.LedgerName,
 				LedgerQuery:     policyServiceResponse.LedgerQuery,
 				PaymentsPoolID:  policyServiceResponse.PaymentsPoolID.String(),
-				AssertionMode:   models.AssertionModeCoverage.String(),
+				Mode:            models.AssertionModeCoverage.String(),
 				AssertionConfig: map[string]interface{}{},
 			}
 

@@ -20,7 +20,7 @@ type CreatePolicyRequest struct {
 	LedgerName      string                 `json:"ledgerName"`
 	LedgerQuery     map[string]interface{} `json:"ledgerQuery"`
 	PaymentsPoolID  string                 `json:"paymentsPoolID"`
-	AssertionMode   models.AssertionMode   `json:"assertionMode"`
+	AssertionMode   models.AssertionMode   `json:"mode"`
 	AssertionConfig map[string]interface{} `json:"assertionConfig"`
 }
 
@@ -39,7 +39,7 @@ func (r *CreatePolicyRequest) Validate() error {
 
 	mode := models.NormalizeAssertionMode(r.AssertionMode)
 	if !mode.IsValid() {
-		return fmt.Errorf("%w: invalid assertionMode", ErrValidation)
+		return fmt.Errorf("%w: invalid mode", ErrValidation)
 	}
 
 	if mode == models.AssertionModeMinBuffer {

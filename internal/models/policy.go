@@ -47,6 +47,6 @@ type Policy struct {
 	LedgerName      string                 `bun:",notnull" json:"ledgerName"`
 	LedgerQuery     map[string]interface{} `bun:",type:jsonb,notnull" json:"ledgerQuery"`
 	PaymentsPoolID  uuid.UUID              `bun:",notnull" json:"paymentsPoolID"`
-	AssertionMode   AssertionMode          `bun:",notnull,default:'COVERAGE'" json:"assertionMode"`
+	AssertionMode   AssertionMode          `bun:",notnull,default:'COVERAGE'" json:"mode"`
 	AssertionConfig map[string]interface{} `bun:",type:jsonb,notnull,default:'{}'" json:"assertionConfig"`
 }
