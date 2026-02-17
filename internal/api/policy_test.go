@@ -10,6 +10,7 @@ import (
 	"time"
 
 	sharedapi "github.com/formancehq/go-libs/api"
+	"github.com/formancehq/go-libs/bun/bunpaginate"
 	"github.com/formancehq/go-libs/auth"
 	"github.com/formancehq/reconciliation/internal/api/service"
 	"github.com/formancehq/reconciliation/internal/models"
@@ -264,6 +265,49 @@ func TestDeletePolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListPolicies(t *testing.T) {
+	t.Parallel()
+
+	policy := models.Policy{
+		ID:              uuid.New(),
+		Name:            "policy-1",
+		CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+		LedgerName:      "ledger",
+		LedgerQuery:     map[string]interface{}{"foo": "bar"},
+		PaymentsPoolID:  uuid.New(),
+		AssertionMode:   "",
+		AssertionConfig: map[string]interface{}{},
+	}
+
+	backend, mockService := newTestingBackend(t)
+	mockService.EXPECT().
+		ListPolicies(gomock.Any(), gomock.Any()).
+		Return(&bunpaginate.Cursor[models.Policy]{
+			PageSize: 15,
+			HasMore:  false,
+			Data:     []models.Policy{policy},
+		}, nil)
+
+	router := newRouter(backend, sharedapi.ServiceInfo{
+		Debug: testing.Verbose(),
+	}, auth.NewNoAuth(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/policies", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp sharedapi.BaseResponse[policyResponse]
+	sharedapi.Decode(t, rec.Body, &resp)
+
+	require.NotNil(t, resp.Cursor)
+	require.Len(t, resp.Cursor.Data, 1)
+	require.Equal(t, models.AssertionModeCoverage.String(), resp.Cursor.Data[0].Mode)
+	require.Equal(t, policy.ID.String(), resp.Cursor.Data[0].ID)
 }
 
 func TestGetPolicy(t *testing.T) {

@@ -120,6 +120,17 @@ func listPoliciesHandler(b backend.Backend) http.HandlerFunc {
 			return
 		}
 
-		api.RenderCursor(w, *cursor)
+		api.RenderCursor(w, *bunpaginate.MapCursor(cursor, func(policy models.Policy) policyResponse {
+			return policyResponse{
+				ID:              policy.ID.String(),
+				Name:            policy.Name,
+				CreatedAt:       policy.CreatedAt,
+				LedgerName:      policy.LedgerName,
+				LedgerQuery:     policy.LedgerQuery,
+				PaymentsPoolID:  policy.PaymentsPoolID.String(),
+				Mode:            models.NormalizeAssertionMode(policy.AssertionMode).String(),
+				AssertionConfig: policy.AssertionConfig,
+			}
+		}))
 	}
 }
