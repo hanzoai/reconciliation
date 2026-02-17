@@ -56,6 +56,24 @@ paths:
         - Authorization:
             - reconciliation:read
   /policies/{policyID}:
+    put:
+      summary: Update a policy
+      tags:
+        - reconciliation.v1
+      operationId: updatePolicy
+      description: Update a policy by appending a new immutable version.
+      parameters:
+        - $ref: '#/components/parameters/PolicyID'
+      requestBody:
+        $ref: '#/components/requestBodies/Policy'
+      responses:
+        '200':
+          $ref: '#/components/responses/Policy'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+      security:
+        - Authorization:
+            - reconciliation:write
     get:
       summary: Get a policy
       tags:
@@ -71,25 +89,6 @@ paths:
       security:
         - Authorization:
             - reconciliation:read
-  /policies/{policyID}/versions:
-    post:
-      summary: Create a policy version
-      tags:
-        - reconciliation.v1
-      operationId: createPolicyVersion
-      description: Append a new immutable version to an existing policy.
-      parameters:
-        - $ref: '#/components/parameters/PolicyID'
-      requestBody:
-        $ref: '#/components/requestBodies/Policy'
-      responses:
-        '201':
-          $ref: '#/components/responses/Policy'
-        default:
-          $ref: '#/components/responses/ErrorResponse'
-      security:
-        - Authorization:
-            - reconciliation:write
   /policies/{policyID}/archive:
     post:
       summary: Archive a policy
