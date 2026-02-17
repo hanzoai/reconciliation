@@ -15,7 +15,8 @@ import (
 var (
 	r1 = &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             p1.ID,
+		PolicyID:             p1.PolicyID,
+		PolicyVersion:        p1.Version,
 		CreatedAt:            time.Now().Add(-1 * time.Hour),
 		ReconciledAtLedger:   time.Now().Add(-1 * time.Hour),
 		ReconciledAtPayments: time.Now().Add(-1 * time.Hour),
@@ -37,7 +38,8 @@ var (
 
 	r2 = &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             p1.ID,
+		PolicyID:             p1.PolicyID,
+		PolicyVersion:        p1.Version,
 		CreatedAt:            time.Now().Add(-2 * time.Hour),
 		ReconciledAtLedger:   time.Now().Add(-2 * time.Hour),
 		ReconciledAtPayments: time.Now().Add(-2 * time.Hour),
@@ -50,7 +52,8 @@ var (
 
 	r3 = &models.Reconciliation{
 		ID:                   uuid.New(),
-		PolicyID:             p2.ID,
+		PolicyID:             p2.PolicyID,
+		PolicyVersion:        p2.Version,
 		CreatedAt:            time.Now().Add(-3 * time.Hour),
 		ReconciledAtLedger:   time.Now().Add(-3 * time.Hour),
 		ReconciledAtPayments: time.Now().Add(-3 * time.Hour),
@@ -128,7 +131,7 @@ func TestReconciliationList(t *testing.T) {
 	t.Run("with query policyID", func(t *testing.T) {
 		reconciliations, err := store.ListReconciliations(context.Background(), GetReconciliationsQuery{
 			Options: PaginatedQueryOptions[ReconciliationsFilters]{
-				QueryBuilder: query.Match("policyID", p1.ID.String()),
+				QueryBuilder: query.Match("policyID", p1.PolicyID.String()),
 			},
 		})
 		require.NoError(t, err)

@@ -15,6 +15,18 @@ const (
 	AssertionModeMinBuffer AssertionMode = "MIN_BUFFER"
 )
 
+type PolicyLifecycle string
+
+const (
+	PolicyLifecycleEnabled  PolicyLifecycle = "ENABLED"
+	PolicyLifecycleDisabled PolicyLifecycle = "DISABLED"
+	PolicyLifecycleArchived PolicyLifecycle = "ARCHIVED"
+)
+
+func (l PolicyLifecycle) String() string {
+	return string(l)
+}
+
 func (a AssertionMode) String() string {
 	return string(a)
 }
@@ -35,13 +47,23 @@ func NormalizeAssertionMode(a AssertionMode) AssertionMode {
 	return a
 }
 
+func NormalizePolicyLifecycle(l PolicyLifecycle) PolicyLifecycle {
+	if l == "" {
+		return PolicyLifecycleEnabled
+	}
+	return l
+}
+
 type Policy struct {
 	bun.BaseModel `bun:"reconciliations.policy" json:"-"`
 
 	// Policy Related fields
-	ID        uuid.UUID `bun:",pk,nullzero" json:"id"`
-	CreatedAt time.Time `bun:",notnull" json:"createdAt"`
-	Name      string    `bun:",notnull" json:"name"`
+	ID        uuid.UUID       `bun:",pk,nullzero" json:"id"` // Version row id
+	PolicyID  uuid.UUID       `bun:",notnull" json:"policyID"`
+	Version   int64           `bun:",notnull" json:"version"`
+	CreatedAt time.Time       `bun:",notnull" json:"createdAt"`
+	Name      string          `bun:",notnull" json:"name"`
+	Lifecycle PolicyLifecycle `bun:",notnull,default:'ENABLED'" json:"lifecycle"`
 
 	// Reconciliation Needed fields
 	LedgerName      string                 `bun:",notnull" json:"ledgerName"`

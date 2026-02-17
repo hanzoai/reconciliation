@@ -24,6 +24,7 @@ type Reconciliation struct {
 
 	ID                   uuid.UUID            `bun:",pk,nullzero" json:"id"`
 	PolicyID             uuid.UUID            `bun:",nullzero" json:"policyID"`
+	PolicyVersion        int64                `bun:",notnull,default:1" json:"policyVersion"`
 	CreatedAt            time.Time            `bun:",nullzero" json:"createdAt"`
 	ReconciledAtLedger   time.Time            `bun:",nullzero" json:"reconciledAtLedger"`
 	ReconciledAtPayments time.Time            `bun:",nullzero" json:"reconciledAtPayments"`

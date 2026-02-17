@@ -81,5 +81,26 @@ func registerMigrations(migrator *migrations.Migrator) {
 				return err
 			},
 		},
+		migrations.Migration{
+			Up: func(tx bun.Tx) error {
+				_, err := tx.Exec(`
+					ALTER TABLE reconciliations.policy ADD COLUMN policy_id uuid;
+					UPDATE reconciliations.policy SET policy_id = id WHERE policy_id IS NULL;
+					ALTER TABLE reconciliations.policy ALTER COLUMN policy_id SET NOT NULL;
+
+					ALTER TABLE reconciliations.policy ADD COLUMN version bigint NOT NULL DEFAULT 1;
+					ALTER TABLE reconciliations.policy ADD COLUMN lifecycle text NOT NULL DEFAULT 'ENABLED';
+
+					CREATE UNIQUE INDEX IF NOT EXISTS reconciliations_policy_policy_id_version_ux
+					ON reconciliations.policy (policy_id, version);
+					CREATE INDEX IF NOT EXISTS reconciliations_policy_policy_id_version_idx
+					ON reconciliations.policy (policy_id, version DESC);
+
+					ALTER TABLE reconciliations.reconciliation DROP CONSTRAINT IF EXISTS reconciliation_policy_fk;
+					ALTER TABLE reconciliations.reconciliation ADD COLUMN policy_version bigint NOT NULL DEFAULT 1;
+				`)
+				return err
+			},
+		},
 	)
 }

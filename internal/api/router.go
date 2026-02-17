@@ -37,7 +37,8 @@ func newRouter(
 
 		r.Post("/policies", createPolicyHandler(b))
 		r.Get("/policies", listPoliciesHandler(b))
-		r.Delete("/policies/{policyID}", deletePolicyHandler(b))
+		r.Post("/policies/{policyID}/versions", createPolicyVersionHandler(b))
+		r.Post("/policies/{policyID}/archive", archivePolicyHandler(b))
 		r.Get("/policies/{policyID}", getPolicyHandler(b))
 		r.Post("/policies/{policyID}/reconciliation", reconciliationHandler(b))
 	})

@@ -94,7 +94,10 @@ type mockStore struct {
 func newMockStore(policy ...*models.Policy) *mockStore {
 	p := &models.Policy{
 		ID:              uuid.New(),
+		PolicyID:        uuid.New(),
+		Version:         1,
 		CreatedAt:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+		Lifecycle:       models.PolicyLifecycleEnabled,
 		Name:            "test",
 		LedgerName:      "default",
 		LedgerQuery:     map[string]interface{}{},
@@ -119,13 +122,27 @@ func (s *mockStore) CreatePolicy(ctx context.Context, policy *models.Policy) err
 	return nil
 }
 
-func (s *mockStore) DeletePolicy(ctx context.Context, id uuid.UUID) error {
+func (s *mockStore) CreatePolicyVersion(ctx context.Context, policy *models.Policy) error {
+	if s.policy != nil {
+		policy.Version = s.policy.Version + 1
+	}
+	return nil
+}
+
+func (s *mockStore) ArchivePolicy(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
 func (s *mockStore) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy, error) {
 	policy := *s.policy
-	policy.ID = id
+	policy.PolicyID = id
+	return &policy, nil
+}
+
+func (s *mockStore) GetPolicyVersion(ctx context.Context, policyID uuid.UUID, version int64) (*models.Policy, error) {
+	policy := *s.policy
+	policy.PolicyID = policyID
+	policy.Version = version
 	return &policy, nil
 }
 

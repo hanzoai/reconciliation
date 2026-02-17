@@ -17,7 +17,8 @@ type Service interface {
 	ListReconciliations(ctx context.Context, q storage.GetReconciliationsQuery) (*bunpaginate.Cursor[models.Reconciliation], error)
 
 	CreatePolicy(ctx context.Context, req *service.CreatePolicyRequest) (*models.Policy, error)
-	DeletePolicy(ctx context.Context, id string) error
+	CreatePolicyVersion(ctx context.Context, id string, req *service.CreatePolicyVersionRequest) (*models.Policy, error)
+	ArchivePolicy(ctx context.Context, id string) error
 	GetPolicy(ctx context.Context, id string) (*models.Policy, error)
 	ListPolicies(ctx context.Context, q storage.GetPoliciesQuery) (*bunpaginate.Cursor[models.Policy], error)
 }

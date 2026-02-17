@@ -14,6 +14,9 @@ import (
 var (
 	p1 = &models.Policy{
 		ID:         uuid.New(),
+		PolicyID:   uuid.New(),
+		Version:    1,
+		Lifecycle:  models.PolicyLifecycleEnabled,
 		CreatedAt:  time.Now().Add(-1 * time.Hour),
 		Name:       "test1",
 		LedgerName: "default",
@@ -29,6 +32,9 @@ var (
 
 	p2 = &models.Policy{
 		ID:         uuid.New(),
+		PolicyID:   uuid.New(),
+		Version:    1,
+		Lifecycle:  models.PolicyLifecycleEnabled,
 		CreatedAt:  time.Now().Add(-2 * time.Hour),
 		Name:       "test2",
 		LedgerName: "default",
@@ -44,6 +50,9 @@ var (
 
 	p3 = &models.Policy{
 		ID:         uuid.New(),
+		PolicyID:   uuid.New(),
+		Version:    1,
+		Lifecycle:  models.PolicyLifecycleEnabled,
 		CreatedAt:  time.Now().Add(-3 * time.Hour),
 		Name:       "test3",
 		LedgerName: "default",
@@ -79,13 +88,13 @@ func TestPolicyList(t *testing.T) {
 	t.Run("with query id", func(t *testing.T) {
 		policies, err := store.ListPolicies(context.Background(), GetPoliciesQuery{
 			Options: PaginatedQueryOptions[PoliciesFilters]{
-				QueryBuilder: query.Match("id", p1.ID.String()),
+				QueryBuilder: query.Match("id", p1.PolicyID.String()),
 			},
 		})
 
 		require.NoError(t, err)
 		require.Len(t, policies.Data, 1)
-		require.Equal(t, policies.Data[0].ID, p1.ID)
+		require.Equal(t, policies.Data[0].PolicyID, p1.PolicyID)
 	})
 
 	t.Run("with query unknown id", func(t *testing.T) {
@@ -107,7 +116,7 @@ func TestPolicyList(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, policies.Data, 1)
-		require.Equal(t, policies.Data[0].ID, p1.ID)
+		require.Equal(t, policies.Data[0].PolicyID, p1.PolicyID)
 	})
 
 	t.Run("with query unknown name", func(t *testing.T) {
