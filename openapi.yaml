@@ -329,13 +329,13 @@ components:
         paymentsPoolID:
           type: string
           example: XXX
-        assertionMode:
-          $ref: '#/components/schemas/AssertionMode'
+        mode:
+          $ref: '#/components/schemas/Mode'
         assertionConfig:
           type: object
           additionalProperties: true
           description: |
-            Used when assertionMode is MIN_BUFFER.
+            Used when mode is MIN_BUFFER.
             Expected shape:
             {
               "assets": {
@@ -382,7 +382,7 @@ components:
         - ledgerName
         - ledgerQuery
         - paymentsPoolID
-        - assertionMode
+        - mode
         - assertionConfig
       properties:
         id:
@@ -404,13 +404,13 @@ components:
         paymentsPoolID:
           type: string
           example: XXX
-        assertionMode:
-          $ref: '#/components/schemas/AssertionMode'
+        mode:
+          $ref: '#/components/schemas/Mode'
         assertionConfig:
           type: object
           additionalProperties: true
           description: Policy assertion configuration persisted with the policy.
-    AssertionMode:
+    Mode:
       type: string
       enum:
         - COVERAGE

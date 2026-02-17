@@ -23,7 +23,7 @@ type policyResponse struct {
 	LedgerName      string                 `json:"ledgerName"`
 	LedgerQuery     map[string]interface{} `json:"ledgerQuery"`
 	PaymentsPoolID  string                 `json:"paymentsPoolID"`
-	AssertionMode   string                 `json:"assertionMode"`
+	Mode            string                 `json:"mode"`
 	AssertionConfig map[string]interface{} `json:"assertionConfig"`
 }
 
@@ -48,7 +48,7 @@ func createPolicyHandler(b backend.Backend) http.HandlerFunc {
 			LedgerName:      policy.LedgerName,
 			LedgerQuery:     policy.LedgerQuery,
 			PaymentsPoolID:  policy.PaymentsPoolID.String(),
-			AssertionMode:   models.NormalizeAssertionMode(policy.AssertionMode).String(),
+			Mode:            models.NormalizeAssertionMode(policy.AssertionMode).String(),
 			AssertionConfig: policy.AssertionConfig,
 		}
 
@@ -87,7 +87,7 @@ func getPolicyHandler(b backend.Backend) http.HandlerFunc {
 			LedgerName:      policy.LedgerName,
 			LedgerQuery:     policy.LedgerQuery,
 			PaymentsPoolID:  policy.PaymentsPoolID.String(),
-			AssertionMode:   models.NormalizeAssertionMode(policy.AssertionMode).String(),
+			Mode:            models.NormalizeAssertionMode(policy.AssertionMode).String(),
 			AssertionConfig: policy.AssertionConfig,
 		}
 
