@@ -52,7 +52,7 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(0),
+					"EUR": big.NewInt(200),
 				},
 				Error: "",
 			},
@@ -114,13 +114,13 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(200),
+					"EUR": big.NewInt(0),
 				},
 				Error: "balance drift for asset EUR",
 			},
 		},
 		{
-			name:            "different length, no drift",
+			name:            "payments extra assets are ignored",
 			ledgerVersion:   "v2.0.0-beta.1",
 			paymentsVersion: "v1.0.0-rc.4",
 			ledgerBalances: map[string]*big.Int{
@@ -133,9 +133,8 @@ func TestReconciliation(t *testing.T) {
 			expectedReco: &models.Reconciliation{
 				ReconciledAtLedger:   time.Time{},
 				ReconciledAtPayments: time.Time{},
-				Status:               models.ReconciliationNotOK,
+				Status:               models.ReconciliationOK,
 				LedgerBalances: map[string]*big.Int{
-					"USD": big.NewInt(0),
 					"EUR": big.NewInt(200),
 				},
 				PaymentsBalances: map[string]*big.Int{
@@ -144,9 +143,8 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"EUR": big.NewInt(0),
-					"USD": big.NewInt(100),
 				},
-				Error: "balance drift for asset USD",
+				Error: "",
 			},
 		},
 		{
@@ -168,19 +166,16 @@ func TestReconciliation(t *testing.T) {
 				LedgerBalances: map[string]*big.Int{
 					"USD": big.NewInt(100),
 					"EUR": big.NewInt(200),
-					"DKK": big.NewInt(0),
 				},
 				PaymentsBalances: map[string]*big.Int{
 					"USD": big.NewInt(-100),
 					"DKK": big.NewInt(-200),
-					"EUR": big.NewInt(0),
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(200),
-					"DKK": big.NewInt(200),
+					"EUR": big.NewInt(0),
 				},
-				Error: "balance drift for asset DKK",
+				Error: "missing asset EUR in paymentBalances",
 			},
 		},
 		{
@@ -197,20 +192,19 @@ func TestReconciliation(t *testing.T) {
 			expectedReco: &models.Reconciliation{
 				ReconciledAtLedger:   time.Time{},
 				ReconciledAtPayments: time.Time{},
-				Status:               models.ReconciliationOK,
+				Status:               models.ReconciliationNotOK,
 				LedgerBalances: map[string]*big.Int{
 					"USD": big.NewInt(100),
 					"EUR": big.NewInt(0),
 				},
 				PaymentsBalances: map[string]*big.Int{
 					"USD": big.NewInt(-100),
-					"EUR": big.NewInt(0),
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(0),
+					"EUR": big.NewInt(200),
 				},
-				Error: "",
+				Error: "missing asset EUR in paymentBalances",
 			},
 		},
 		{
@@ -230,7 +224,6 @@ func TestReconciliation(t *testing.T) {
 				Status:               models.ReconciliationOK,
 				LedgerBalances: map[string]*big.Int{
 					"USD": big.NewInt(100),
-					"EUR": big.NewInt(0),
 				},
 				PaymentsBalances: map[string]*big.Int{
 					"USD": big.NewInt(-100),
@@ -238,7 +231,6 @@ func TestReconciliation(t *testing.T) {
 				},
 				DriftBalances: map[string]*big.Int{
 					"USD": big.NewInt(0),
-					"EUR": big.NewInt(0),
 				},
 				Error: "",
 			},
