@@ -1,6 +1,6 @@
 module github.com/formancehq/reconciliation
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/formancehq/formance-sdk-go/v3 v3.2.0
