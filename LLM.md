@@ -1,4 +1,4 @@
-# LLM.md - Hanzo Reconciliation
+# Hanzo Reconciliation
 
 ## Overview
 Go module: github.com/formancehq/reconciliation
