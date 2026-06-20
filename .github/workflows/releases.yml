@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   GoReleaser:
-    runs-on: "ubuntu-latest"
+    runs-on: hanzo-build-linux-amd64
     steps:
       - uses: 'actions/checkout@v6'
         with:
