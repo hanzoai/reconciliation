@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/hero.svg" alt="reconciliation" width="880"></p>
+
 # Hanzo Reconciliation
 
 Automated transaction matching engine. Compares ledger balances against payment provider data to verify financial consistency and identify discrepancies.
