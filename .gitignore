@@ -1,0 +1,12 @@
+.DS_Store
+.idea
+.direnv
+result
+vendor
+.cloud/ressources/.terraform
+.cloud/ressources/.terraform.lock.hcl
+/.cloud/helm/charts/
+coverage.out
+dist/
+.env
+reconciliation
