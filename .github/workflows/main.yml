@@ -16,7 +16,7 @@ jobs:
   PR:
     if: github.event_name == 'pull_request'
     name: Check PR Title
-    runs-on: hanzo-build-linux-amd64
+    runs-on: linux-amd64
     permissions:
       statuses: write
     steps:
@@ -25,7 +25,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   Dirty:
-    runs-on: hanzo-build-linux-amd64
+    runs-on: linux-amd64
     steps:
       - uses: 'actions/checkout@v6'
         with:
@@ -48,7 +48,7 @@ jobs:
           fi
 
   Tests:
-    runs-on: hanzo-build-linux-amd64
+    runs-on: linux-amd64
     needs:
       - Dirty
     steps:
@@ -63,7 +63,7 @@ jobs:
         run: nix develop --impure -c just tests
 
   GoReleaser:
-    runs-on: hanzo-build-linux-amd64
+    runs-on: linux-amd64
     if: contains(github.event.pull_request.labels.*.name, 'build-images') || github.ref == 'refs/heads/main' || github.event_name == 'merge_group'
     needs:
       - Dirty
@@ -84,7 +84,7 @@ jobs:
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
 
   Deploy:
-    runs-on: hanzo-deploy-linux-amd64
+    runs-on: linux-amd64
     if: github.ref == 'refs/heads/main'
     environment: staging
     needs:
