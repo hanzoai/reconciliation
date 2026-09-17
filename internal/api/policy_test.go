@@ -38,7 +38,7 @@ func TestCreatePolicy(t *testing.T) {
 			req: &service.CreatePolicyRequest{
 				Name:           "test",
 				LedgerName:     "test",
-				LedgerQuery:    map[string]interface{}{},
+				LedgerQuery:    map[string]any{},
 				PaymentsPoolID: "00000000-0000-0000-0000-000000000000",
 			},
 		},
@@ -58,7 +58,7 @@ func TestCreatePolicy(t *testing.T) {
 			req: &service.CreatePolicyRequest{
 				Name:           "test",
 				LedgerName:     "test",
-				LedgerQuery:    map[string]interface{}{},
+				LedgerQuery:    map[string]any{},
 				PaymentsPoolID: "00000000-0000-0000-0000-000000000000",
 			},
 			serviceError:       service.ErrValidation,
@@ -70,7 +70,7 @@ func TestCreatePolicy(t *testing.T) {
 			req: &service.CreatePolicyRequest{
 				Name:           "test",
 				LedgerName:     "test",
-				LedgerQuery:    map[string]interface{}{},
+				LedgerQuery:    map[string]any{},
 				PaymentsPoolID: "00000000-0000-0000-0000-000000000000",
 			},
 			serviceError:       service.ErrInvalidID,
@@ -82,7 +82,7 @@ func TestCreatePolicy(t *testing.T) {
 			req: &service.CreatePolicyRequest{
 				Name:           "test",
 				LedgerName:     "test",
-				LedgerQuery:    map[string]interface{}{},
+				LedgerQuery:    map[string]any{},
 				PaymentsPoolID: "00000000-0000-0000-0000-000000000000",
 			},
 			serviceError:       storage.ErrNotFound,
@@ -94,7 +94,7 @@ func TestCreatePolicy(t *testing.T) {
 			req: &service.CreatePolicyRequest{
 				Name:           "test",
 				LedgerName:     "test",
-				LedgerQuery:    map[string]interface{}{},
+				LedgerQuery:    map[string]any{},
 				PaymentsPoolID: "00000000-0000-0000-0000-000000000000",
 			},
 			serviceError:       errors.New("some error"),
@@ -325,7 +325,7 @@ func TestGetPolicy(t *testing.T) {
 					CreatedAt:      time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 					Name:           "test",
 					LedgerName:     "test",
-					LedgerQuery:    map[string]interface{}{},
+					LedgerQuery:    map[string]any{},
 					PaymentsPoolID: uuid.New(),
 				}
 			}

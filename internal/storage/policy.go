@@ -74,7 +74,7 @@ func (s *Storage) ListPolicies(ctx context.Context, q GetPoliciesQuery) (*bunpag
 		}
 	}
 
-	return paginateWithOffset[PaginatedQueryOptions[PoliciesFilters], models.Policy](s, ctx,
+	return s.paginateWithOffset[PaginatedQueryOptions[PoliciesFilters], models.Policy](ctx,
 		(*bunpaginate.OffsetPaginatedQuery[PaginatedQueryOptions[PoliciesFilters]])(&q),
 		func(query *bun.SelectQuery) *bun.SelectQuery {
 			return s.buildPolicyListQuery(query, q, where, args)

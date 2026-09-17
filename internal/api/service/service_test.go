@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"maps"
 	"math/big"
 	"net/http"
 	"time"
@@ -75,9 +76,7 @@ func (s *mockSDKFormanceClient) V2GetInfo(ctx context.Context) (*operations.V2Ge
 
 func (s *mockSDKFormanceClient) V2GetBalancesAggregated(ctx context.Context, req operations.V2GetBalancesAggregatedRequest) (*operations.V2GetBalancesAggregatedResponse, error) {
 	balances := make(map[string]*big.Int)
-	for assetCode, balance := range s.ledgerBalances {
-		balances[assetCode] = balance
-	}
+	maps.Copy(balances, s.ledgerBalances)
 
 	return &operations.V2GetBalancesAggregatedResponse{
 		StatusCode: http.StatusOK,
@@ -112,7 +111,7 @@ func (s *mockStore) GetPolicy(ctx context.Context, id uuid.UUID) (*models.Policy
 		CreatedAt:      time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 		Name:           "test",
 		LedgerName:     "default",
-		LedgerQuery:    map[string]interface{}{},
+		LedgerQuery:    map[string]any{},
 		PaymentsPoolID: uuid.New(),
 	}, nil
 }

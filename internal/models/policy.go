@@ -16,7 +16,7 @@ type Policy struct {
 	Name      string    `bun:",notnull" json:"name"`
 
 	// Reconciliation Needed fields
-	LedgerName     string                 `bun:",notnull" json:"ledgerName"`
-	LedgerQuery    map[string]interface{} `bun:",type:jsonb,notnull" json:"ledgerQuery"`
-	PaymentsPoolID uuid.UUID              `bun:",notnull" json:"paymentsPoolID"`
+	LedgerName     string         `bun:",notnull" json:"ledgerName"`
+	LedgerQuery    map[string]any `bun:",type:jsonb,notnull" json:"ledgerQuery"`
+	PaymentsPoolID uuid.UUID      `bun:",notnull" json:"paymentsPoolID"`
 }

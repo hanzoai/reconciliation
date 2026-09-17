@@ -17,8 +17,8 @@ var (
 		CreatedAt:  time.Now().Add(-1 * time.Hour),
 		Name:       "test1",
 		LedgerName: "default",
-		LedgerQuery: map[string]interface{}{
-			"$match": map[string]interface{}{
+		LedgerQuery: map[string]any{
+			"$match": map[string]any{
 				"account": "test",
 			},
 		},
@@ -30,8 +30,8 @@ var (
 		CreatedAt:  time.Now().Add(-2 * time.Hour),
 		Name:       "test2",
 		LedgerName: "default",
-		LedgerQuery: map[string]interface{}{
-			"$match": map[string]interface{}{
+		LedgerQuery: map[string]any{
+			"$match": map[string]any{
 				"account": "test",
 			},
 		},
@@ -43,8 +43,8 @@ var (
 		CreatedAt:  time.Now().Add(-3 * time.Hour),
 		Name:       "test3",
 		LedgerName: "default",
-		LedgerQuery: map[string]interface{}{
-			"$match": map[string]interface{}{
+		LedgerQuery: map[string]any{
+			"$match": map[string]any{
 				"account": "test",
 			},
 		},

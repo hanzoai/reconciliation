@@ -61,7 +61,7 @@ func (s *Storage) ListReconciliations(ctx context.Context, q GetReconciliationsQ
 		}
 	}
 
-	return paginateWithOffset[PaginatedQueryOptions[ReconciliationsFilters], models.Reconciliation](s, ctx,
+	return s.paginateWithOffset[PaginatedQueryOptions[ReconciliationsFilters], models.Reconciliation](ctx,
 		(*bunpaginate.OffsetPaginatedQuery[PaginatedQueryOptions[ReconciliationsFilters]])(&q),
 		func(query *bun.SelectQuery) *bun.SelectQuery {
 			return s.buildReconciliationListQuery(query, q, where, args)

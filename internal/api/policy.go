@@ -16,12 +16,12 @@ import (
 )
 
 type policyResponse struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	LedgerName     string                 `json:"ledgerName"`
-	LedgerQuery    map[string]interface{} `json:"ledgerQuery"`
-	PaymentsPoolID string                 `json:"paymentsPoolID"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	CreatedAt      time.Time      `json:"createdAt"`
+	LedgerName     string         `json:"ledgerName"`
+	LedgerQuery    map[string]any `json:"ledgerQuery"`
+	PaymentsPoolID string         `json:"paymentsPoolID"`
 }
 
 func createPolicyHandler(b backend.Backend) http.HandlerFunc {

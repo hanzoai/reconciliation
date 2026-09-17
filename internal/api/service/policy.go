@@ -13,10 +13,10 @@ import (
 )
 
 type CreatePolicyRequest struct {
-	Name           string                 `json:"name"`
-	LedgerName     string                 `json:"ledgerName"`
-	LedgerQuery    map[string]interface{} `json:"ledgerQuery"`
-	PaymentsPoolID string                 `json:"paymentsPoolID"`
+	Name           string         `json:"name"`
+	LedgerName     string         `json:"ledgerName"`
+	LedgerQuery    map[string]any `json:"ledgerQuery"`
+	PaymentsPoolID string         `json:"paymentsPoolID"`
 }
 
 func (r *CreatePolicyRequest) Validate() error {

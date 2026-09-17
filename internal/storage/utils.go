@@ -8,7 +8,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func paginateWithOffset[FILTERS any, RETURN any](s *Storage, ctx context.Context,
+func (s *Storage) paginateWithOffset[FILTERS any, RETURN any](ctx context.Context,
 	q *bunpaginate.OffsetPaginatedQuery[FILTERS], builders ...func(query *bun.SelectQuery) *bun.SelectQuery) (*bunpaginate.Cursor[RETURN], error) {
 
 	query := s.db.NewSelect()

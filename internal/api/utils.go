@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/formancehq/go-libs/pointer"
 	"github.com/formancehq/go-libs/query"
 	"github.com/formancehq/reconciliation/internal/storage"
 )
@@ -35,7 +34,7 @@ func getPaginatedQueryOptionsReconciliations(r *http.Request) (*storage.Paginate
 	}
 
 	filters := storage.ReconciliationsFilters{}
-	return pointer.For(storage.NewPaginatedQueryOptions(filters).
+	return new(storage.NewPaginatedQueryOptions(filters).
 		WithQueryBuilder(qb).
 		WithPageSize(pageSize)), nil
 }
@@ -52,7 +51,7 @@ func getPaginatedQueryOptionsPolicies(r *http.Request) (*storage.PaginatedQueryO
 	}
 
 	filters := storage.PoliciesFilters{}
-	return pointer.For(storage.NewPaginatedQueryOptions(filters).
+	return new(storage.NewPaginatedQueryOptions(filters).
 		WithQueryBuilder(qb).
 		WithPageSize(pageSize)), nil
 }

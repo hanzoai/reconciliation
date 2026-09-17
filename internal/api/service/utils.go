@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"time"
 
@@ -34,7 +35,7 @@ func isVersionSupported(
 	}
 }
 
-func (s *Service) getAccountsAggregatedBalance(ctx context.Context, ledgerName string, ledgerAggregatedBalanceQuery map[string]interface{}, at time.Time) (map[string]*big.Int, error) {
+func (s *Service) getAccountsAggregatedBalance(ctx context.Context, ledgerName string, ledgerAggregatedBalanceQuery map[string]any, at time.Time) (map[string]*big.Int, error) {
 	infoResponse, err := s.client.V2GetInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ledger info: %w", err)
@@ -69,9 +70,7 @@ func (s *Service) getAccountsAggregatedBalance(ctx context.Context, ledgerName s
 	}
 
 	balanceMap := make(map[string]*big.Int)
-	for asset, balance := range balances.V2AggregateBalancesResponse.Data {
-		balanceMap[asset] = balance
-	}
+	maps.Copy(balanceMap, balances.V2AggregateBalancesResponse.Data)
 
 	return balanceMap, nil
 }
